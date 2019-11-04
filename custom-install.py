@@ -325,3 +325,6 @@ with TemporaryDirectory(suffix='-custom-install') as tempdir:
     # import the directory, now including our title
     print('Importing into Title Database...')
     subprocess.run(save3ds_fuse_common_args + ['-i'])
+
+print('\nFINAL STEP:\nRun custom-install-finalize through homebrew launcher.')
+print('This will install a ticket and seed if required.')
