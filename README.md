@@ -6,8 +6,9 @@ Experimental script to automate the process of a manual title install for Ninten
 2. Install pycryptodomex:
   * Windows: `py -3 -m pip install --user --upgrade pycryptodomex`
   * macOS/Linux: `python3 -m pip install --user --upgrade pycryptodomex`
-2. Run `custom-install.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
-3. Use custom-install-finalize on the 3DS system to finish the install.
+3. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/master.zip) or `git clone`)
+4. Run `custom-install.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
+5. Use custom-install-finalize on the 3DS system to finish the install.
 
 ## Setup
 Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`.
