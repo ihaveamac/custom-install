@@ -10,7 +10,7 @@ Experimental script to automate the process of a manual title install for Ninten
 3. Use custom-install-finalize on the 3DS system to finish the install.
 
 ## Setup
-Linux uses must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`.
+Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`.
 
 movable.sed is required and can be provided with `-m` or `--movable`.
 
