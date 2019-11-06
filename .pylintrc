@@ -1,0 +1,18 @@
+[TYPECHECK]
+ignored-classes=Events
+
+[MASTER]
+disable=missing-docstring,
+    invalid-name,
+    line-too-long,
+    bad-continuation,
+    consider-using-enumerate,
+    trailing-whitespace,
+    wrong-import-order,
+    subprocess-run-check,
+    singleton-comparison,
+    attribute-defined-outside-init,
+    fixme,
+    redefined-outer-name,
+    multiple-statements,
+    bare-except

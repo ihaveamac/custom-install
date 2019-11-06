@@ -1,0 +1,6 @@
+.vscode/
+bin/linux/save3ds_fuse
+**/__pycache__
+**/finalize
+cstinst/
+testing-class.py
