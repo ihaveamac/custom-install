@@ -2,5 +2,5 @@
 bin/linux/save3ds_fuse
 **/__pycache__
 **/finalize
-cstinst/
+cstins/
 testing-class.py

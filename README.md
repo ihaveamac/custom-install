@@ -3,15 +3,15 @@ Experimental script to automate the process of a manual title install for Ninten
 
 ## Summary
 1. Dump boot9.bin and movable.sed from a 3DS system.
-2. Install pycryptodomex:
-  * Windows: `py -3 -m pip install --user --upgrade pycryptodomex`
-  * macOS/Linux: `python3 -m pip install --user --upgrade pycryptodomex`
+2. Install the packages:
+  * Windows: `py -3 -m pip install --user -r requirements.txt`
+  * macOS/Linux: `python3 -m pip install --user -r requirements.txt`
 3. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/master.zip) or `git clone`)
-4. Run `custom-install.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
+4. Run `custominstall.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
 
 ## Setup
-Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`.
+Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Just install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build`. Your compiled binary is located in `target/debug/save3ds_fuse`, copy it to `bin/linux`.
 
 movable.sed is required and can be provided with `-m` or `--movable`.
 
@@ -32,14 +32,30 @@ SeedDB is checked in order of:
 * `~/.3ds/seeddb.bin`
 * `~/3ds/seeddb.bin`
 
+## Building finalize
+Finalize is **required** for newer games that use seeds. Without finalize, the game may not show up on your 3ds, while it being on your sd card.
+
+In order to build finalize so you can put it in your `SD:/3ds/` directory (or whatever directory you prefer for homebrew software), you will need devkitARM, or preferrably, using devkitPro's pacman installer:
+
+If you tell everyone you use Arch (btw), your current pacman package manager will work, you just need the dependencies, skip the step below and [see here.](https://devkitpro.org/wiki/devkitPro_pacman#Customising_Existing_Pacman_Install)
+
+[Installation instructions for devkitPro Pacman](https://devkitpro.org/wiki/Getting_Started)
+  * macOS/Linux: `sudo pacman -S 3ds-dev`
+
+*You may need to add `dpk-` to the devkitPro pacman build, tab completion might help*
+
+Now head to the directory `finalize/` where you see the Makefile, and run:
+
+* macOS/Linux: `make`
+
 ## Usage
 Use `-h` to view arguments.
 
 Examples:
 ```
-py -3 custom-install.py -b boot9.bin -m movable.sed --sd E:\ file.cia file2.cia
-python3 custom-install.py -b boot9.bin -m movable.sed --sd /Volumes/GM9SD file.cia file2.cia
-python3 custom-install.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia file2.cia
+py -3 custominstall.py -b boot9.bin -m movable.sed --sd E:\ file.cia file2.cia
+python3 custominstall.py -b boot9.bin -m movable.sed --sd /Volumes/GM9SD file.cia file2.cia
+python3 custominstall.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia file2.cia
 ```
 
 ## License/Credits
