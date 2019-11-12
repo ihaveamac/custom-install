@@ -12,12 +12,13 @@ from hashlib import sha256
 from sys import platform
 from tempfile import TemporaryDirectory
 from typing import BinaryIO
-from events import Events
 import subprocess
 
+from events import Events
+
 from pyctr.crypto import CryptoEngine, Keyslot
-from pyctr.types.cia import CIAReader, CIASection
-from pyctr.types.ncch import NCCHSection
+from pyctr.type.cia import CIAReader, CIASection
+from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
 
 # used to run the save3ds_fuse binary next to the script
@@ -262,33 +263,29 @@ class CustomInstall():
                 b'\0' * 0x2c
             ]
 
-            self.log(title_info_entry_data)
-
             title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
             with cia.open_raw_section(CIASection.Ticket) as t:
                 ticket_data = t.read()
 
             finalize_entry_data = [
-                # title id
-                bytes.fromhex(cia.tmd.title_id)[::-1],
-                # common key index
-                ticket_data[0x1F1:0x1F2],
-                # has seed
-                cia.contents[0].flags.uses_seed.to_bytes(1, 'little'),
                 # magic
                 b'TITLE\0',
-                # encrypted titlekey
-                ticket_data[0x1BF:0x1CF],
+                # title id
+                bytes.fromhex(cia.tmd.title_id)[::-1],
+                # has seed
+                cia.contents[0].flags.uses_seed.to_bytes(1, 'little'),
+                # padding
+                b'\0',
                 # seed, if needed
-                cia.contents[0].seed if cia.contents[0].flags.uses_seed else (b'\0' * 0x10)
+                (cia.contents[0].seed if cia.contents[0].flags.uses_seed else (b'\0' * 0x10))
             ]
 
             finalize_entries.append(b''.join(finalize_entry_data))
 
         with open(join(self.sd, 'cifinish.bin'), 'wb') as o:
             # magic, version, title count
-            o.write(b'CIFINISH' + (1).to_bytes(4, 'little') + len(finalize_entries).to_bytes(4, 'little'))
+            o.write(b'CIFINISH' + (2).to_bytes(4, 'little') + len(finalize_entries).to_bytes(4, 'little'))
 
             # add each entry to cifinish.bin
             for entry in finalize_entries:
@@ -367,7 +364,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description='Manually install a CIA to the SD card for a Nintendo 3DS system.')
     parser.add_argument('cia', help='CIA files', nargs='+')
     parser.add_argument('-m', '--movable', help='movable.sed file', required=True)
-    parser.add_argument('-b', '--boot9', help='boot9 file', required=True)
+    parser.add_argument('-b', '--boot9', help='boot9 file')
     parser.add_argument('--sd', help='path to SD root')
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
 
