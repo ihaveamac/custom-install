@@ -1,4 +1,8 @@
-save3ds_fuse for win32 and darwin built with commit a9bd1468751200ccd2d5285dd91482847d6a22ed
+save3ds_fuse for win32 and darwin built with commit 09a421a5dab729e7e5f394506627e5e49994f7ee
 in repository https://github.com/wwylele/save3ds
+
+win32 binary built on Windows 10, version 1903 64-bit with `cargo build --release --target=i686-pc-windows-msvc`.
+
+darwin binary built on macOS 10.15.1 with `cd save3ds_fuse && cargo build --no-default-features --release`.
 
 linux binary must be provided by the user.
