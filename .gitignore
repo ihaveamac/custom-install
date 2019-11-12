@@ -1,6 +1,17 @@
 .vscode/
 bin/linux/save3ds_fuse
-**/__pycache__
 **/finalize
 cstins/
 testing-class.py
+
+# macOS
+.DS_Store
+._*
+
+# Python
+venv/
+**/__pycache__/
+*.pyc
+
+# JetBrains
+.idea/
