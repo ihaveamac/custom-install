@@ -9,8 +9,9 @@ from threading import Lock
 from typing import TYPE_CHECKING, NamedTuple
 
 from ..common import PyCTRError, _ReaderOpenFileBase
+from ..fileio import SubsectionIO
 from ..util import readle
-from ..types.smdh import SMDH, InvalidSMDHError
+from ..type.smdh import SMDH, InvalidSMDHError
 
 if TYPE_CHECKING:
     from typing import BinaryIO, Dict, Union
@@ -165,10 +166,7 @@ class _ExeFSOpenFile(_ReaderOpenFileBase):
 
     def __init__(self, reader: 'ExeFSReader', path: str):
         super().__init__(reader, path)
-        try:
-            self._info = reader.entries[self._path]
-        except KeyError:
-            raise ExeFSFileNotFoundError(self._path)
+        self._info = reader.entries[self._path]
 
 
 class ExeFSReader:
@@ -182,7 +180,7 @@ class ExeFSReader:
     _code_dec = None
     icon: 'SMDH' = None
 
-    def __init__(self, fp: 'Union[str, BinaryIO]', *, _load_icon: bool = True):
+    def __init__(self, fp: 'Union[str, BinaryIO]', *, closefd: bool = True, _load_icon: bool = True):
         if isinstance(fp, str):
             fp = open(fp, 'rb')
 
@@ -190,6 +188,7 @@ class ExeFSReader:
         self._start = fp.tell()
         self._fp = fp
         self._lock = Lock()
+        self._closefd = closefd
 
         self.entries: 'Dict[str, ExeFSEntry]' = {}
 
@@ -232,7 +231,7 @@ class ExeFSReader:
         try:
             with self.open('icon') as f:
                 self.icon = SMDH.load(f)
-        except InvalidSMDHError:
+        except (ExeFSFileNotFoundError, InvalidSMDHError):
             pass
 
     def __len__(self) -> int:
@@ -241,10 +240,11 @@ class ExeFSReader:
 
     def close(self):
         self.closed = True
-        try:
-            self._fp.close()
-        except AttributeError:
-            pass
+        if self._closefd:
+            try:
+                self._fp.close()
+            except AttributeError:
+                pass
 
     __del__ = close
 
@@ -259,7 +259,15 @@ class ExeFSReader:
         if normalize:
             # remove beginning "/" and ending ".bin"
             path = _normalize_path(path)
-        return _ExeFSOpenFile(self, path)
+        try:
+            entry = self.entries[path]
+        except KeyError:
+            raise ExeFSFileNotFoundError(path)
+        if entry.offset == -1:
+            # this would be the decompressed .code, if the original .code was compressed
+            return _ExeFSOpenFile(self, path)
+        else:
+            return SubsectionIO(self._fp, self._start + EXEFS_HEADER_SIZE + entry.offset, entry.size)
 
     def get_data(self, info: ExeFSEntry, offset: int, size: int) -> bytes:
         if offset + size > info.size:

@@ -9,6 +9,7 @@ from threading import Lock
 from typing import overload, TYPE_CHECKING, NamedTuple
 
 from ..common import PyCTRError, _ReaderOpenFileBase
+from ..fileio import SubsectionIO
 from ..util import readle, roundup
 
 if TYPE_CHECKING:
@@ -62,16 +63,6 @@ class RomFSFileEntry(NamedTuple):
     type: str
     offset: int
     size: int
-
-
-class _RomFSOpenFile(_ReaderOpenFileBase):
-    """Class for open RomFS file entries."""
-
-    def __init__(self, reader: 'RomFSReader', path: str):
-        super().__init__(reader, path)
-        self._info: RomFSFileEntry = reader.get_info_from_path(path)
-        if not isinstance(self._info, RomFSFileEntry):
-            raise RomFSIsADirectoryError(path)
 
 
 class RomFSReader:
@@ -206,11 +197,14 @@ class RomFSReader:
 
     @overload
     def open(self, path: str, encoding: None = None, errors: 'Optional[str]' = None,
-             newline: 'Optional[str]' = None) -> _RomFSOpenFile: ...
+             newline: 'Optional[str]' = None) -> SubsectionIO: ...
 
     def open(self, path, encoding=None, errors=None, newline=None):
         """Open a file in the RomFS for reading."""
-        f = _RomFSOpenFile(self, path)
+        file_info = self.get_info_from_path(path)
+        if not isinstance(file_info, RomFSFileEntry):
+            raise RomFSIsADirectoryError(path)
+        f = SubsectionIO(self._fp, self._start + self.data_offset + file_info.offset, file_info.size)
         if encoding is not None:
             f = TextIOWrapper(f, encoding, errors, newline)
         return f
@@ -237,10 +231,3 @@ class RomFSReader:
             return RomFSDirectoryEntry(name=curr['name'], type='dir', contents=(*contents,))
         elif curr['type'] == 'file':
             return RomFSFileEntry(name=curr['name'], type='file', offset=curr['offset'], size=curr['size'])
-
-    def get_data(self, info: RomFSFileEntry, offset: int, size: int) -> bytes:
-        if offset + size > info.size:
-            size = info.size - offset
-        with self._lock:
-            self._fp.seek(self._start + self.data_offset + info.offset + offset)
-            return self._fp.read(size)

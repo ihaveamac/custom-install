@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, NamedTuple
 from .exefs import ExeFSReader, EXEFS_HEADER_SIZE
 from .romfs import RomFSReader
 from ..common import PyCTRError, _ReaderOpenFileBase
-from ..util import config_dirs, readle, roundup
 from ..crypto import CryptoEngine, Keyslot
+from ..fileio import SubsectionIO
+from ..util import config_dirs, readle, roundup
 
 if TYPE_CHECKING:
     from typing import BinaryIO, Dict, List, Optional, Tuple, Union
@@ -150,7 +151,7 @@ class NCCHReader:
     romfs: 'Optional[RomFSReader]' = None
 
     def __init__(self, fp: 'Union[str, BinaryIO]', *, case_insensitive: bool = True, crypto: CryptoEngine = None,
-                 dev: bool = False, seeddb: str = None, load_sections: bool = True):
+                 dev: bool = False, seeddb: str = None, load_sections: bool = True, assume_decrypted: bool = False):
         if isinstance(fp, str):
             fp = open(fp, 'rb')
 
@@ -158,6 +159,9 @@ class NCCHReader:
             self._crypto = crypto
         else:
             self._crypto = CryptoEngine(dev=dev)
+
+        # old decryption methods did not fix the flags, so sometimes we have to assume it is decrypted
+        self.assume_decrypted = assume_decrypted
 
         # store the starting offset so the NCCH can be read from any point in the base file
         self._start = fp.tell()
@@ -308,7 +312,17 @@ class NCCHReader:
 
     def open_raw_section(self, section: 'NCCHSection'):
         """Open a raw NCCH section for reading."""
-        return _NCCHSectionFile(self, section)
+        # check if the region is ExeFS and uses a newer keyslot, or is fulldec, and use a specific file class
+        if (section == NCCHSection.ExeFS and self.extra_keyslot) or (section == NCCHSection.FullDecrypted):
+            return _NCCHSectionFile(self, section)
+        else:
+            region = self.sections[section]
+            fh = SubsectionIO(self._fp, self._start + region.offset, region.size)
+        # if the region is encrypted (not ExeFS if an extra keyslot is in use), wrap it in CTRFileIO
+        if not (self.assume_decrypted or self.flags.no_crypto or section in NO_ENCRYPTION):
+            keyslot = self.extra_keyslot if region.section == NCCHSection.RomFS else Keyslot.NCCH
+            fh = self._crypto.create_ctr_io(keyslot, fh, region.iv)
+        return fh
 
     def get_key_y(self, original: bool = False) -> bytes:
         if original or not self.flags.uses_seed:
@@ -447,7 +461,8 @@ class NCCHReader:
 
         with self._lock:
             # check if decryption is really needed
-            if self.flags.no_crypto or region.section in NO_ENCRYPTION:
+            if self.assume_decrypted or self.flags.no_crypto or region.section in NO_ENCRYPTION:
+                # this is currently used to support FullDecrypted. other sections use SubsectionIO + CTRFileIO.
                 self._fp.seek(self._start + region.offset + offset)
                 return self._fp.read(size)
 
@@ -503,6 +518,8 @@ class NCCHReader:
                 # join all the chunks into one bytes result and return it
                 return b''.join(do_thing(aligned_offset, aligned_size, before, 0x200 - ((size + before) % 0x200)))
             else:
+                # this is currently used to support FullDecrypted. other sections use SubsectionIO + CTRFileIO.
+
                 # seek to the real offset of the section + the requested offset
                 self._fp.seek(self._start + region.offset + offset)
                 data = self._fp.read(size)
