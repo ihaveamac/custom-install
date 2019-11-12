@@ -2,7 +2,7 @@
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
 
 ## Summary
-1. Dump boot9.bin and movable.sed from a 3DS system.
+1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
 2. Install the packages:
   * Windows: `py -3 -m pip install --user -r requirements.txt`
   * macOS/Linux: `python3 -m pip install --user -r requirements.txt`
@@ -32,21 +32,10 @@ SeedDB is checked in order of:
 * `~/.3ds/seeddb.bin`
 * `~/3ds/seeddb.bin`
 
-## Building finalize
-Finalize is **required** for newer games that use seeds. Without finalize, the game may not show up on your 3ds, while it being on your sd card.
+## custom-install-finalize
+custom-install-finalize installs a ticket, plus a seed if required. This is required for the title to appear and function.
 
-In order to build finalize so you can put it in your `SD:/3ds/` directory (or whatever directory you prefer for homebrew software), you will need devkitARM, or preferrably, using devkitPro's pacman installer:
-
-If you tell everyone you use Arch (btw), your current pacman package manager will work, you just need the dependencies, skip the step below and [see here.](https://devkitpro.org/wiki/devkitPro_pacman#Customising_Existing_Pacman_Install)
-
-[Installation instructions for devkitPro Pacman](https://devkitpro.org/wiki/Getting_Started)
-  * macOS/Linux: `sudo pacman -S 3ds-dev`
-
-*You may need to add `dpk-` to the devkitPro pacman build, tab completion might help*
-
-Now head to the directory `finalize/` where you see the Makefile, and run:
-
-* macOS/Linux: `make`
+This can be built as most 3DS homebrew projects [with devkitARM](https://www.3dbrew.org/wiki/Setting_up_Development_Environment).
 
 ## Usage
 Use `-h` to view arguments.
