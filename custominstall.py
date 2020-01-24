@@ -33,6 +33,9 @@ TITLE_ALIGN_SIZE = 0x8000
 # size to read at a time when copying files
 READ_SIZE = 0x200000
 
+# version for cifinish.bin
+CIFINISH_VERSION = 3
+
 
 # Placeholder for SDPathErrors
 class SDPathError(Exception):
@@ -60,7 +63,7 @@ class CustomInstall():
             dst.write(data)
             left -= to_read
             total_read = size - left
-            self.log(f' {(total_read / size) * 100:>5.1f}%  {total_read / 1048576:>.1f} MiB / {size / 1048576:.1f} MiB')
+            # self.log(f' {(total_read / size) * 100:>5.1f}%  {total_read / 1048576:>.1f} MiB / {size / 1048576:.1f} MiB')
             self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self):
@@ -210,6 +213,9 @@ class CustomInstall():
                     try:
                         info = content_ids[x]
                     except KeyError:
+                        # "MISSING CONTENT!"
+                        # The 3DS does generate a cmac for missing contents, but I don't know how it works.
+                        # It doesn't matter anyway, the title seems to be fully functional.
                         cmacs.append(bytes.fromhex('4D495353494E4720434F4E54454E5421'))
                     else:
                         ids_by_index[x] = info[0]
@@ -273,12 +279,12 @@ class CustomInstall():
             finalize_entry_data = [
                 # magic
                 b'TITLE\0',
-                # title id
-                bytes.fromhex(cia.tmd.title_id)[::-1],
                 # has seed
                 cia.contents[0].flags.uses_seed.to_bytes(1, 'little'),
                 # padding
                 b'\0',
+                # title id
+                bytes.fromhex(cia.tmd.title_id)[::-1],
                 # seed, if needed
                 (cia.contents[0].seed if cia.contents[0].flags.uses_seed else (b'\0' * 0x10))
             ]
@@ -287,7 +293,9 @@ class CustomInstall():
 
         with open(join(self.sd, 'cifinish.bin'), 'wb') as o:
             # magic, version, title count
-            o.write(b'CIFINISH' + (2).to_bytes(4, 'little') + len(finalize_entries).to_bytes(4, 'little'))
+            o.write(b'CIFINISH'
+                    + (CIFINISH_VERSION).to_bytes(4, 'little')
+                    + len(finalize_entries).to_bytes(4, 'little'))
 
             # add each entry to cifinish.bin
             for entry in finalize_entries:
@@ -334,7 +342,7 @@ class CustomInstall():
                     id1s.append(d.name)
         return [sd_path, id1s]
 
-    def log(self, message, mtype=0, errorname=None):
+    def log(self, message, mtype=0, errorname=None, end='\n'):
         """Logs an Message with a type. Format is similar to python errors
 
         There are 3 types of errors, indexed accordingly
@@ -357,7 +365,7 @@ class CustomInstall():
         # Example: "Warning: UninformativeError: An error occured, try again.""
         msg_with_type = types[mtype] + errorname + str(message)
         self.log_lines.append(msg_with_type)
-        self.event.on_log_msg(msg_with_type)
+        self.event.on_log_msg(msg_with_type, end=end)
         return msg_with_type
 
 
@@ -366,7 +374,7 @@ if __name__ == "__main__":
     parser.add_argument('cia', help='CIA files', nargs='+')
     parser.add_argument('-m', '--movable', help='movable.sed file', required=True)
     parser.add_argument('-b', '--boot9', help='boot9 file')
-    parser.add_argument('--sd', help='path to SD root')
+    parser.add_argument('--sd', help='path to SD root', required=True)
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
 
     args = parser.parse_args()
@@ -377,11 +385,11 @@ if __name__ == "__main__":
                               sd=args.sd,
                               skip_contents=(args.skip_contents or False))
 
-    def log_handle(msg):
-        print(msg)
+    def log_handle(msg, end='\n'):
+        print(msg, end=end)
     
     def percent_handle(total_percent, total_read, size):
-        installer.log(f' {total_percent:>5.1f}%  {total_read:>.1f} MiB / {size:.1f} MiB')
+        installer.log(f' {total_percent:>5.1f}%  {total_read:>.1f} MiB / {size:.1f} MiB\r', end='')
 
     installer.event.on_log_msg += log_handle
     installer.event.update_percentage += percent_handle
