@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <3ds.h>
 
 #include "basetik_bin.h"
@@ -96,6 +97,8 @@ void finalize_install(void)
 	entries = calloc(header.title_count, sizeof(struct finish_db_entry));
 	fread(entries, sizeof(struct finish_db_entry), header.title_count, fp);
 	fclose(fp);
+	printf("Deleting %s...\n", CIFINISH_PATH);
+	unlink(CIFINISH_PATH);
 
 	for (int i = 0; i < header.title_count; ++i)
 	{
