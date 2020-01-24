@@ -1,6 +1,6 @@
 # This file is a part of custom-install.py.
 #
-# Copyright (c) 2019 Ian Burgwin
+# Copyright (c) 2019-2020 Ian Burgwin
 # This file is licensed under The MIT License (MIT).
 # You can find the full license text in LICENSE.md in the root of this project.
 
@@ -11,8 +11,12 @@ from random import randint
 from hashlib import sha256
 from sys import platform
 from tempfile import TemporaryDirectory
-from typing import BinaryIO
+from typing import BinaryIO, TYPE_CHECKING
 import subprocess
+
+if TYPE_CHECKING:
+    from os import PathLike
+    from typing import Union
 
 from events import Events
 
@@ -42,7 +46,91 @@ class SDPathError(Exception):
     pass
 
 
-class CustomInstall():
+class InvalidCIFinishError(Exception):
+    pass
+
+
+def load_cifinish(path: 'Union[PathLike, bytes, str]'):
+    try:
+        with open(path, 'rb') as f:
+            header = f.read(0x10)
+            if header[0:8] != b'CIFINISH':
+                raise InvalidCIFinishError('CIFINISH magic not found')
+            version = int.from_bytes(header[0x8:0xC], 'little')
+            count = int.from_bytes(header[0xC:0x10], 'little')
+            data = {}
+            for _ in range(count):
+                if version == 1:
+                    # ignoring the titlekey and common key index, since it's not useful in this scenario
+                    raw_entry = f.read(0x30)
+                    if len(raw_entry) != 0x30:
+                        raise InvalidCIFinishError(f'title entry is not 0x30 (version {version})')
+
+                    title_magic = raw_entry[0xA:0x10]
+                    title_id = int.from_bytes(raw_entry[0:8], 'little')
+                    has_seed = raw_entry[0x9]
+                    seed = raw_entry[0x20:0x30]
+
+                elif version == 2:
+                    # this is assuming the "wrong" version created by an earlier version of this script
+                    # there wasn't a version of custom-install-finalize that really accepted this version
+                    raw_entry = f.read(0x20)
+                    if len(raw_entry) != 0x20:
+                        raise InvalidCIFinishError(f'title entry is not 0x20 (version {version})')
+
+                    title_magic = raw_entry[0:6]
+                    title_id = int.from_bytes(raw_entry[0x6:0xE], 'little')
+                    has_seed = raw_entry[0xE]
+                    seed = raw_entry[0x10:0x20]
+
+                elif version == 3:
+                    raw_entry = f.read(0x20)
+                    if len(raw_entry) != 0x20:
+                        raise InvalidCIFinishError(f'title entry is not 0x20 (version {version})')
+
+                    title_magic = raw_entry[0:6]
+                    title_id = int.from_bytes(raw_entry[0x8:0x10], 'little')
+                    has_seed = raw_entry[0x6]
+                    seed = raw_entry[0x10:0x20]
+
+                else:
+                    raise InvalidCIFinishError(f'unknown version {version}')
+
+                if title_magic == b'TITLE\0':
+                    data[title_id] = {'seed': seed if has_seed else None}
+
+        return data
+    except FileNotFoundError:
+        # allow the caller to easily create a new database in the same place where an existing one would be updated
+        return {}
+
+
+def save_cifinish(path: 'Union[PathLike, bytes, str]', data: dict):
+    with open(path, 'wb') as out:
+        entries = sorted(data.items())
+
+        out.write(b'CIFINISH')
+        out.write(CIFINISH_VERSION.to_bytes(4, 'little'))
+        out.write(len(entries).to_bytes(4, 'little'))
+
+        for tid, data in entries:
+            finalize_entry_data = [
+                # magic
+                b'TITLE\0',
+                # has seed
+                bool(data['seed']).to_bytes(1, 'little'),
+                # padding
+                b'\0',
+                # title id
+                tid.to_bytes(8, 'little'),
+                # seed, if needed
+                (data['seed'] if data['seed'] else (b'\0' * 0x10))
+            ]
+
+            out.write(b''.join(finalize_entry_data))
+
+
+class CustomInstall:
     def __init__(self, boot9, movable, cias, sd, skip_contents=False):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
@@ -80,15 +168,15 @@ class CustomInstall():
         except SDPathError:
             self.log("")
 
+        cifinish_path = join(self.sd, 'cifinish.bin')
         sd_path = join(sd_path, id1s[0])
         title_info_entries = {}
-        # for use with a finalize program on the 3DS
-        finalize_entries = []
+        cifinish_data = load_cifinish(cifinish_path)
 
         # Now loop through all provided cia files
         
         for c in self.cias:
-            self.log('Reading CIA')
+            self.log('Reading ' + c)
 
             cia = CIAReader(c)
             self.cia = cia
@@ -276,31 +364,10 @@ class CustomInstall():
 
             title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
-            finalize_entry_data = [
-                # magic
-                b'TITLE\0',
-                # has seed
-                cia.contents[0].flags.uses_seed.to_bytes(1, 'little'),
-                # padding
-                b'\0',
-                # title id
-                bytes.fromhex(cia.tmd.title_id)[::-1],
-                # seed, if needed
-                (cia.contents[0].seed if cia.contents[0].flags.uses_seed else (b'\0' * 0x10))
-            ]
+            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (cia.contents[0].seed if cia.contents[0].flags.uses_seed else None)}
 
-            finalize_entries.append(b''.join(finalize_entry_data))
+        save_cifinish(cifinish_path, cifinish_data)
 
-        with open(join(self.sd, 'cifinish.bin'), 'wb') as o:
-            # magic, version, title count
-            o.write(b'CIFINISH'
-                    + (CIFINISH_VERSION).to_bytes(4, 'little')
-                    + len(finalize_entries).to_bytes(4, 'little'))
-
-            # add each entry to cifinish.bin
-            for entry in finalize_entries:
-                o.write(entry)
-        
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
             # set up the common arguments for the two times we call save3ds_fuse
             save3ds_fuse_common_args = [
