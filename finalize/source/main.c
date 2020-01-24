@@ -6,7 +6,7 @@
 #include "basetik_bin.h"
 
 #define CIFINISH_PATH "/cifinish.bin"
-#define REQUIRED_VERSION 2
+#define REQUIRED_VERSION 3
 
 // 0x10
 struct finish_db_header {
@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	puts("custom-install-finalize v1.1");
+	puts("custom-install-finalize v1.2");
 
 	finalize_install();
 	puts("\nPress START or B to exit.");
