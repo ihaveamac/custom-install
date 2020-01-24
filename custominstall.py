@@ -33,13 +33,16 @@ TITLE_ALIGN_SIZE = 0x8000
 # size to read at a time when copying files
 READ_SIZE = 0x200000
 
+
 # Placeholder for SDPathErrors
-class SDPathError(Exception): pass
+class SDPathError(Exception):
+    pass
+
 
 class CustomInstall():
     def __init__(self, boot9, movable, cias, sd, skip_contents=False):
         self.event = Events()
-        self.log_lines = [] # Stores all info messages for user to view
+        self.log_lines = []  # Stores all info messages for user to view
 
         self.crypto = CryptoEngine(boot9=boot9)
         self.crypto.setup_sd_key_from_file(movable)
@@ -67,7 +70,8 @@ class CustomInstall():
         [sd_path, id1s] = self.get_sd_path()
         try:
             if len(id1s) > 1:
-                raise SDPathError(f'There are multiple id1 directories for id0 {crypto.id0.hex()}, please remove extra directories')
+                raise SDPathError(f'There are multiple id1 directories for id0 {crypto.id0.hex()}, '
+                                  f'please remove extra directories')
             elif len(id1s) == 0:
                 raise SDPathError(f'Could not find a suitable id1 directory for id0 {crypto.id0.hex()}')
         except SDPathError:
@@ -148,22 +152,23 @@ class CustomInstall():
                 # write the tmd
                 enc_path = content_root_cmd + '/' + tmd_filename
                 self.log(f'Writing {enc_path}...')
-                with cia.open_raw_section(CIASection.TitleMetadata) as s, open(join(content_root, tmd_filename), 'wb') as o:
-                    self.copy_with_progress(s, o, cia.sections[CIASection.TitleMetadata].size, enc_path)
+                with cia.open_raw_section(CIASection.TitleMetadata) as s:
+                    with open(join(content_root, tmd_filename), 'wb') as o:
+                        self.copy_with_progress(s, o, cia.sections[CIASection.TitleMetadata].size, enc_path)
 
                 # write each content
-                for c in cia.content_info:
-                    content_filename = c.id + '.app'
+                for co in cia.content_info:
+                    content_filename = co.id + '.app'
                     if is_dlc:
-                        dir_index = format((c.cindex // 256), '08x')
+                        dir_index = format((co.cindex // 256), '08x')
                         enc_path = content_root_cmd + f'/{dir_index}/{content_filename}'
                         out_path = join(content_root, dir_index, content_filename)
                     else:
                         enc_path = content_root_cmd + '/' + content_filename
                         out_path = join(content_root, content_filename)
                     self.log(f'Writing {enc_path}...')
-                    with cia.open_raw_section(c.cindex) as s, open(out_path, 'wb') as o:
-                        self.copy_with_progress(s, o, c.size, enc_path)
+                    with cia.open_raw_section(co.cindex) as s, open(out_path, 'wb') as o:
+                        self.copy_with_progress(s, o, co.size, enc_path)
 
                 # generate a blank save
                 if cia.tmd.save_size:
@@ -193,9 +198,9 @@ class CustomInstall():
                     id_bytes = bytes.fromhex(record.id)[::-1]
                     cmac_data += record.cindex.to_bytes(4, 'little') + id_bytes
 
-                    c = crypto.create_cmac_object(Keyslot.CMACSDNAND)
-                    c.update(sha256(cmac_data).digest())
-                    content_ids[record.cindex] = (id_bytes, c.digest())
+                    cmac_ncch = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                    cmac_ncch.update(sha256(cmac_data).digest())
+                    content_ids[record.cindex] = (id_bytes, cmac_ncch.digest())
 
                 # add content IDs up to the last one
                 ids_by_index = [CMD_MISSING] * (highest_index + 1)
@@ -213,12 +218,12 @@ class CustomInstall():
                 installed_ids.sort(key=lambda x: int.from_bytes(x, 'little'))
 
                 final = (cmd_id.to_bytes(4, 'little')
-                        + len(ids_by_index).to_bytes(4, 'little')
-                        + len(installed_ids).to_bytes(4, 'little')
-                        + (1).to_bytes(4, 'little'))
-                c = crypto.create_cmac_object(Keyslot.CMACSDNAND)
-                c.update(final)
-                final += c.digest()
+                         + len(ids_by_index).to_bytes(4, 'little')
+                         + len(installed_ids).to_bytes(4, 'little')
+                         + (1).to_bytes(4, 'little'))
+                cmac_cmd_header = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                cmac_cmd_header.update(final)
+                final += cmac_cmd_header.digest()
 
                 final += b''.join(ids_by_index)
                 final += b''.join(installed_ids)
@@ -264,9 +269,6 @@ class CustomInstall():
             ]
 
             title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
-
-            with cia.open_raw_section(CIASection.Ticket) as t:
-                ticket_data = t.read()
 
             finalize_entry_data = [
                 # magic
@@ -318,14 +320,13 @@ class CustomInstall():
         self.log('FINAL STEP:\nRun custom-install-finalize through homebrew launcher.')
         self.log('This will install a ticket and seed if required.')
 
-    
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
         id1s = []
         for d in scandir(sd_path):
             if d.is_dir() and len(d.name) == 32:
                 try:
-                    #id1_tmp = bytes.fromhex(d.name)
+                    # id1_tmp = bytes.fromhex(d.name)
                     pass
                 except ValueError:
                     continue
@@ -333,7 +334,6 @@ class CustomInstall():
                     id1s.append(d.name)
         return [sd_path, id1s]
 
-    
     def log(self, message, mtype=0, errorname=None):
         """Logs an Message with a type. Format is similar to python errors
 
@@ -344,21 +344,22 @@ class CustomInstall():
 
         optionally, errorname can be a custom name as a string to identify errors easily
         """
-        if errorname == None:
+        if errorname:
+            errorname += ": "
+        else:
             # No errorname provided
             errorname = ""
-        else:
-            errorname += ": "
         types = [
-            "", # Type 0
-            "Warning: ", # Type 1
-            "Error: " # Type 2
+            "",  # Type 0
+            "Warning: ",  # Type 1
+            "Error: "  # Type 2
         ]
         # Example: "Warning: UninformativeError: An error occured, try again.""
         msg_with_type = types[mtype] + errorname + str(message)
         self.log_lines.append(msg_with_type)
         self.event.on_log_msg(msg_with_type)
         return msg_with_type
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Manually install a CIA to the SD card for a Nintendo 3DS system.')
@@ -368,14 +369,13 @@ if __name__ == "__main__":
     parser.add_argument('--sd', help='path to SD root')
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
 
-    
     args = parser.parse_args()
 
     installer = CustomInstall(boot9=args.boot9,
-            cias=args.cia,
-            movable=args.movable,
-            sd=args.sd,
-            skip_contents=(args.skip_contents or False))
+                              cias=args.cia,
+                              movable=args.movable,
+                              sd=args.sd,
+                              skip_contents=(args.skip_contents or False))
 
     def log_handle(msg):
         print(msg)
