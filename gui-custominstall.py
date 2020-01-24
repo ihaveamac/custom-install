@@ -79,7 +79,7 @@ class CustomInstallGui(tk.Frame):
         # self.debug_values()
         
         def start_install():
-            def log_handle(message): self.add_log_msg(message)
+            def log_handle(message, end=None): self.add_log_msg(message)
             def percentage_handle(percent, total_read, size): self.progress['value'] = percent
 
             installer.event.on_log_msg += log_handle
