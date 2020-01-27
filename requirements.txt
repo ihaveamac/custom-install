@@ -1,2 +1,2 @@
-pycryptodomex==3.9.1
+pycryptodomex==3.9.4
 events==0.3
