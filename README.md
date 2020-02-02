@@ -25,7 +25,6 @@ boot9 is needed:
 
 A [SeedDB](https://github.com/ihaveamac/3DS-rom-tools/wiki/SeedDB-list) is needed for newer games (2015+) that use seeds.  
 SeedDB is checked in order of:
-* `--seeddb` argument (if set)
 * `SEEDDB_PATH` environment variable (if set)
 * `%APPDATA%\3ds\seeddb.bin` (Windows-specific)
 * `~/Library/Application Support/3ds/seeddb.bin` (macOS-specific)
