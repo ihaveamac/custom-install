@@ -49,7 +49,10 @@ def copy_with_progress(src: BinaryIO, dst: BinaryIO, size: int, path: str):
 
 
 parser = ArgumentParser(description='Manually install a CIA to the SD card for a Nintendo 3DS system.')
-parser.add_argument('cia', help='CIA files', nargs='+')
+# make optional
+parser.add_argument('cia', help='CIA files', nargs='*')
+# add list option
+parser.add_argument('-l', '--listfile', help='CIA List, paths included')
 parser.add_argument('-m', '--movable', help='movable.sed file', required=True)
 parser.add_argument('-b', '--boot9', help='boot9 file')
 parser.add_argument('--sd', help='path to SD root')
@@ -86,7 +89,21 @@ title_info_entries = {}
 # for use with a finalize program on the 3DS
 finalize_entries = []
 
-for c in args.cia:
+# make shared arg
+# if we can add to args.cia, way simpler, i'm just iD10t.
+cialist = []
+# move cia list to shared arg
+for x in args.cia:
+	cialist.append(x)
+# add filelist to shared arg if used
+if args.listfile:
+    FileList = open(args.listfile, "r" )
+    for x in FileList:
+            x = x.rstrip('\n')
+            cialist.append(x)
+
+# now using new var
+for c in cialist:
     # parse the cia
     print('Reading CIA...')
     cia = CIAReader(c)
