@@ -50,7 +50,7 @@ GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.de
 
 Special thanks to CrafterPika and archbox for testing.
 
-### Setup
+### GUI Setup
 - Ubuntu/Debian: `sudo apt install python3-tk`
 - Manjaro/Arch: `sudo pacman -S tk`
 - Mac: Sometimes the default tkinter libs that ship with mac don't work, you can get them on the python site. - `https://www.python.org/downloads/mac-osx/`
