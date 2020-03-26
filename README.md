@@ -41,6 +41,11 @@ python3 custom-install.py -b boot9.bin -m movable.sed --sd /Volumes/GM9SD file.c
 python3 custom-install.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia file2.cia
 ```
 
+## GUI
+GUI wrapper to easily manage your apps.
+[GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
+GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
+
 ## License/Credits
 `pyctr/` is from [ninfs `d994c78`](https://github.com/ihaveamac/ninfs/tree/d994c78acf5ff3840df1ef5a6aabdc12ca98e806/ninfs/pyctr).
 
