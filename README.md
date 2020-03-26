@@ -47,6 +47,11 @@ GUI wrapper to easily manage your apps.
 ![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
 
 GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
+Special thanks to CrafterPika and archbox for testing.
+
+### Setup
+- Ubuntu/Debian: `sudo apt install python3-tk`
+- Manjaro/Arch: `sudo pacman -S tk`
 
 ## License/Credits
 `pyctr/` is from [ninfs `d994c78`](https://github.com/ihaveamac/ninfs/tree/d994c78acf5ff3840df1ef5a6aabdc12ca98e806/ninfs/pyctr).
