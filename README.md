@@ -43,7 +43,9 @@ python3 custom-install.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia
 
 ## GUI
 GUI wrapper to easily manage your apps.
+
 ![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
+
 GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
 
 ## License/Credits
