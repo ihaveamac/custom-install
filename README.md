@@ -53,7 +53,7 @@ Special thanks to CrafterPika and archbox for testing.
 ### GUI Setup
 - Ubuntu/Debian: `sudo apt install python3-tk`
 - Manjaro/Arch: `sudo pacman -S tk`
-- Mac: Sometimes the default tkinter libs that ship with mac don't work, you can get them on the python site. - `https://www.python.org/downloads/mac-osx/`
+- Mac: Sometimes the default tkinter libs that ship with mac don't work, you can get them on the python site - `https://www.python.org/downloads/mac-osx/`
 - Windows: Install python - `Remember to install tcl/tk when doing a custom installation`
 
 ## License/Credits
