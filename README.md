@@ -47,6 +47,7 @@ GUI wrapper to easily manage your apps.
 ![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
 
 GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
+
 Special thanks to CrafterPika and archbox for testing.
 
 ### Setup
