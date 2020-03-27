@@ -1,4 +1,4 @@
-![Releases](https://img.shields.io/github/downloads/LyfeOnEdge/custom-install/total.svg)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)]() ![Releases](https://img.shields.io/github/downloads/LyfeOnEdge/custom-install/total.svg)
 
 # custom-install
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
