@@ -74,6 +74,9 @@ class PathEntry(tk.Entry):
 		self.configure(textvariable = self.text_var)
 		self.configure(background = style.ENTRY_COLOR)
 		self.configure(foreground = style.ENTRY_FOREGROUND)
+		self.configure(borderwidth = 0)
+		self.configure(highlightthickness = 2)
+		self.configure(highlightbackground = style.BUTTON_COLOR)
 		super().place(relwidth = 1, relheight = 1, width = - style.BUTTONSIZE)
 		self.container = container
 
@@ -102,7 +105,7 @@ class LabeledPathEntry(PathEntry):
 	"""Gives the PathEntry class a label"""
 	def __init__(self, frame, text, *args, **kw):
 		self.xtainer = themedFrame(frame)
-		label = tk.Label(self.xtainer, text = text)
+		label = tk.Label(self.xtainer, text = text, background = style.BACKGROUND_COLOR, foreground = style.LABEL_COLOR)
 		label.place(width = label.winfo_reqwidth(), relheight = 1)
 		PathEntry.__init__(self, self.xtainer, *args, **kw)		
 		PathEntry.place(self, relwidth = 1, relheight = 1, width = - (label.winfo_reqwidth() + 5), x = label.winfo_reqwidth() + 5)
@@ -237,7 +240,7 @@ class CreateToolTip(object):
 		self.tw.wm_overrideredirect(True)
 		self.tw.wm_geometry("+%d+%d" % (x, y))
 		label = tk.Label(self.tw, text=self.text, justify='left',
-					   background='gray', foreground = "white",
+					   background='gray', foreground = style.LABEL_COLOR,
 					   relief='solid', borderwidth=2,
 					   font=("times", "12", "normal"),
 					   wraplength = self.widget.winfo_width())
@@ -263,8 +266,10 @@ class gui(tk.Tk):
 		tk.Tk.__init__(self)
 		self.minsize(300, 400)
 		self.title("custom-install gui")
+		self.f = themedFrame(self)
+		self.f.place(relwidth = 1, relheight = 1)
 		
-		outer_frame = themedFrame(self)
+		outer_frame = themedFrame(self.f)
 		outer_frame.place(relwidth = 1, relheight = 1, x = + style.STANDARD_OFFSET, width = - 2 * style.STANDARD_OFFSET, y = + style.STANDARD_OFFSET, height = - 2 * style.STANDARD_OFFSET)
 		
 		self.sd_box = LabeledPathEntry(outer_frame, "Path to SD root -", dir = True)
@@ -283,7 +288,7 @@ class gui(tk.Tk):
 		cia_container = themedFrame(outer_frame, borderwidth = 0, highlightthickness = 0)
 		cia_container.place(y = 90, relwidth = 1, height = 115)
 
-		cia_label = tk.Label(cia_container, text = "cia paths - ")
+		cia_label = tk.Label(cia_container, text = "cia paths - ", foreground = style.LABEL_COLOR, background = style.BACKGROUND_COLOR)
 		cia_label.place(relwidth = 1, height = 20)
 		self.cia_box = tk.Listbox(cia_container, highlightthickness = 0, bg = style.ENTRY_COLOR, foreground = style.ENTRY_FOREGROUND)
 		self.cia_box.place(relwidth = 1, height = 70, y = 20)
@@ -300,7 +305,7 @@ class gui(tk.Tk):
 		#-------------------------------------------------
 
 		self.skip_contents = tk.IntVar()
-		skip_contents_checkbutton = tk.Checkbutton(outer_frame, text="Skip contents? (only add title info)", variable=self.skip_contents)
+		skip_contents_checkbutton = tk.Checkbutton(outer_frame, text="Skip contents? (only add title info)", variable=self.skip_contents, background = style.BACKGROUND_COLOR, foreground = style.LABEL_COLOR, borderwidth = 0, highlightthickness = 0)
 		skip_contents_checkbutton.place(relwidth = 1, y = 205, height = 20)
 
 		console_label = tk.Label(outer_frame, text = "Console:", background = "black", foreground = "white", font = style.boldmonospace, borderwidth = 0, highlightthickness = 0)
