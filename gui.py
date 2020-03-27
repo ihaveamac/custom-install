@@ -3,13 +3,25 @@
 import os, sys, platform, subprocess, threading
 import tkinter as tk
 import tkinter.filedialog as tkfiledialog
+import style
 
-STANDARD_OFFSET = 10 #Offset to place everything
-BUTTONSIZE = 30
-monospace = ("Monospace",10)
-boldmonospace = ("Monospace",10,"bold")
+# BUTTON_COLOR = 
+# BUTTON_HIGHLIGHT_COLOR =  
+# BUTTON_FONT = 
 
 # Custom button
+
+class themedFrame(tk.Frame):
+	def __init__(self, frame, **kw):
+		tk.Frame.__init__(self, frame, **kw)
+		if not (kw.get("background") or kw.get("bg")):
+			self.configure(bg = style.BACKGROUND_COLOR)
+		if not kw.get("borderwidth"):
+			self.configure(borderwidth = 0)
+		if not kw.get("highlightthickness"):
+			self.configure(highlightthickness = 0)
+
+
 class Button(tk.Label):
 	"""Cross-platform button"""
 	def __init__(self,frame,callback,**kw):
@@ -20,7 +32,8 @@ class Button(tk.Label):
 		self.configure(anchor="center")
 		self.configure(background=self.background)
 		self.configure(highlightthickness=1)
-		self.configure(font = monospace)
+		if not "font" in kw.keys():
+			self.configure(font = style.BUTTON_FONT)
 		self.configure(highlightbackground = "#999999")
 		self.bind('<Button-1>', self.on_click)
 
@@ -53,13 +66,15 @@ class PathEntry(tk.Entry):
 	def __init__(self, frame, dir = False, filetypes = None, *args, **kw):
 		self.dir = dir
 		self.filetypes = filetypes
-		container = tk.Frame(frame)
+		container = themedFrame(frame)
 		self.button = Button(container, self.set_path, text = "...")
-		self.button.place(relheight = 1, relx = 1, x = - BUTTONSIZE, width = BUTTONSIZE)
+		self.button.place(relheight = 1, relx = 1, x = - style.BUTTONSIZE, width = style.BUTTONSIZE)
 		tk.Entry.__init__(self, container, *args, **kw)
 		self.text_var = tk.StringVar()
 		self.configure(textvariable = self.text_var)
-		super().place(relwidth = 1, relheight = 1, width = - BUTTONSIZE)
+		self.configure(background = style.ENTRY_COLOR)
+		self.configure(foreground = style.ENTRY_FOREGROUND)
+		super().place(relwidth = 1, relheight = 1, width = - style.BUTTONSIZE)
 		self.container = container
 
 	def clear(self):
@@ -86,7 +101,7 @@ class PathEntry(tk.Entry):
 class LabeledPathEntry(PathEntry):
 	"""Gives the PathEntry class a label"""
 	def __init__(self, frame, text, *args, **kw):
-		self.xtainer = tk.Frame(frame)
+		self.xtainer = themedFrame(frame)
 		label = tk.Label(self.xtainer, text = text)
 		label.place(width = label.winfo_reqwidth(), relheight = 1)
 		PathEntry.__init__(self, self.xtainer, *args, **kw)		
@@ -148,7 +163,7 @@ def _create_container(func):
 	'''Creates a tk Frame with a given master, and use this new frame to
 	place the scrollbars and the widget.'''
 	def wrapped(cls, master, **kw):
-		container = tk.Frame(master)
+		container = themedFrame(master)
 		container.bind('<Enter>', lambda e: _bound_to_mousewheel(e, container))
 		container.bind(
 			'<Leave>', lambda e: _unbound_to_mousewheel(e, container))
@@ -199,58 +214,38 @@ class ScrolledText(AutoScroll, tk.Text):
 		AutoScroll.__init__(self, master)
 
 # from https://stackoverflow.com/questions/3221956/how-do-i-display-tooltips-in-tkinter
+
+
 class CreateToolTip(object):
-    """
-    create a tooltip for a given widget
-    """
-    def __init__(self, widget, text='widget info'):
-        self.waittime = 500     #miliseconds
-        self.wraplength = 180   #pixels
-        self.widget = widget
-        self.text = text
-        self.widget.bind("<Enter>", self.enter)
-        self.widget.bind("<Leave>", self.leave)
-        self.widget.bind("<ButtonPress>", self.leave)
-        self.id = None
-        self.tw = None
+	'''
+	create a tooltip for a given widget
+	'''
+	def __init__(self, widget, text='widget info'):
+		self.widget = widget
+		self.text = text
+		self.widget.bind("<Enter>", self.enter)
+		self.widget.bind("<Leave>", self.close)
 
-    def enter(self, event=None):
-        self.schedule()
+	def enter(self, event=None):
+		x = y = 0
+		x, y, cx, cy = self.widget.bbox("insert")
+		x += self.widget.winfo_rootx()
+		y += self.widget.winfo_rooty() + 20
+		# creates a toplevel window
+		self.tw = tk.Toplevel(self.widget)
+		# Leaves only the label and removes the app window
+		self.tw.wm_overrideredirect(True)
+		self.tw.wm_geometry("+%d+%d" % (x, y))
+		label = tk.Label(self.tw, text=self.text, justify='left',
+					   background='gray', foreground = "white",
+					   relief='solid', borderwidth=2,
+					   font=("times", "12", "normal"),
+					   wraplength = self.widget.winfo_width())
+		label.pack(ipadx=1)
 
-    def leave(self, event=None):
-        self.unschedule()
-        self.hidetip()
-
-    def schedule(self):
-        self.unschedule()
-        self.id = self.widget.after(self.waittime, self.showtip)
-
-    def unschedule(self):
-        id = self.id
-        self.id = None
-        if id:
-            self.widget.after_cancel(id)
-
-    def showtip(self, event=None):
-        x = y = 0
-        x, y, cx, cy = self.widget.bbox("insert")
-        x += self.widget.winfo_rootx() + 25
-        y += self.widget.winfo_rooty() + 20
-        # creates a toplevel window
-        self.tw = tk.Toplevel(self.widget)
-        # Leaves only the label and removes the app window
-        self.tw.wm_overrideredirect(True)
-        self.tw.wm_geometry("+%d+%d" % (x, y))
-        label = tk.Label(self.tw, text=self.text, justify='left',
-                       background="#ffffff", relief='solid', borderwidth=1,
-                       wraplength = self.wraplength)
-        label.pack(ipadx=1)
-
-    def hidetip(self):
-        tw = self.tw
-        self.tw= None
-        if tw:
-            tw.destroy()
+	def close(self, event=None):
+		if self.tw:
+			self.tw.destroy()
 
 
 class threader_object:
@@ -269,34 +264,38 @@ class gui(tk.Tk):
 		self.minsize(300, 400)
 		self.title("custom-install gui")
 		
-		outer_frame = tk.Frame(self)
-		outer_frame.place(relwidth = 1, relheight = 1, x = + STANDARD_OFFSET, width = - 2 * STANDARD_OFFSET, y = + STANDARD_OFFSET, height = - 2 * STANDARD_OFFSET)
+		outer_frame = themedFrame(self)
+		outer_frame.place(relwidth = 1, relheight = 1, x = + style.STANDARD_OFFSET, width = - 2 * style.STANDARD_OFFSET, y = + style.STANDARD_OFFSET, height = - 2 * style.STANDARD_OFFSET)
 		
 		self.sd_box = LabeledPathEntry(outer_frame, "Path to SD root -", dir = True)
 		self.sd_box.place(relwidth = 1, height = 20, x = 0)
+		CreateToolTip(self.sd_box.xtainer, "Select the root of the sd card you wish to install the cias to.")
 		
 		self.sed_box = LabeledPathEntry(outer_frame, "Path to movable.sed file -", filetypes = [('sed file', '*.sed')])
 		self.sed_box.place(relwidth = 1, height = 20, x = 0, y = 30)
-		
+		CreateToolTip(self.sed_box.xtainer, "Select movable.sed file, this can be dumped from a 3ds")
+
 		self.boot9_box = LabeledPathEntry(outer_frame, "Path to boot9 file -", filetypes = [('boot9 file', '*.bin')])
 		self.boot9_box.place(relwidth = 1, height = 20, x = 0, y = 60)
+		CreateToolTip(self.boot9_box.xtainer, "Select the path to boot9.bin, this can be dumped from a 3ds")
 
 		#-------------------------------------------------
-		cia_container = tk.Frame(outer_frame, borderwidth = 0, highlightthickness = 0)
+		cia_container = themedFrame(outer_frame, borderwidth = 0, highlightthickness = 0)
 		cia_container.place(y = 90, relwidth = 1, height = 115)
-		
+
 		cia_label = tk.Label(cia_container, text = "cia paths - ")
 		cia_label.place(relwidth = 1, height = 20)
-		self.cia_box = tk.Listbox(cia_container, highlightthickness = 0)
+		self.cia_box = tk.Listbox(cia_container, highlightthickness = 0, bg = style.ENTRY_COLOR, foreground = style.ENTRY_FOREGROUND)
 		self.cia_box.place(relwidth = 1, height = 70, y = 20)
+		CreateToolTip(cia_label, "Select the cias you wish to install to the sd card. The `add folder` button will add all cias in the selected folder, but will not check subdirs. The `remove cia` button will remove the currently selected file from the listbox.")
 		
-		add_cia_button = Button(cia_container, self.add_cia, text = "add cia", font = monospace)
+		add_cia_button = Button(cia_container, self.add_cia, text = "add cia", font = style.monospace)
 		add_cia_button.place(relx = 0, relwidth = 0.333, height = 20, y = 92, width = - 6)
 		
-		add_cia_folder_button = Button(cia_container, self.add_cia_folder, text = "add folder", font = monospace)
+		add_cia_folder_button = Button(cia_container, self.add_cia_folder, text = "add folder", font = style.monospace)
 		add_cia_folder_button.place(relx = 0.333, relwidth = 0.333, height = 20, y = 92, x = + 3, width = - 6)
 		
-		remove_cia_button = Button(cia_container, self.remove_cia, text = "remove cia", font = monospace)
+		remove_cia_button = Button(cia_container, self.remove_cia, text = "remove cia", font = style.monospace)
 		remove_cia_button.place(relx = 0.666, relwidth = 0.333, height = 20, y = 92, x = + 6, width = - 6)
 		#-------------------------------------------------
 
@@ -304,11 +303,11 @@ class gui(tk.Tk):
 		skip_contents_checkbutton = tk.Checkbutton(outer_frame, text="Skip contents? (only add title info)", variable=self.skip_contents)
 		skip_contents_checkbutton.place(relwidth = 1, y = 205, height = 20)
 
-		console_label = tk.Label(outer_frame, text = "Console:", background = "black", foreground = "white", font = boldmonospace, borderwidth = 0, highlightthickness = 0)
+		console_label = tk.Label(outer_frame, text = "Console:", background = "black", foreground = "white", font = style.boldmonospace, borderwidth = 0, highlightthickness = 0)
 		console_label.place(relwidth = 1, height = 20, y = 230)
 		self.console = ScrolledText(outer_frame, background = "black", foreground = "white", highlightthickness = 0)
 		self.console.place(relwidth = 1, relheight = 1, y = 250, height = - 272)
-		run_button = Button(outer_frame, self.run, text = "run", font = boldmonospace)
+		run_button = Button(outer_frame, self.run, text = "run", font = style.boldmonospace)
 		run_button.place(relwidth = 1, rely = 1, y = - 22)
 
 	def run(self):
