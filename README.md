@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)]() ![Releases](https://img.shields.io/github/downloads/LyfeOnEdge/custom-install/total.svg)
+
 # custom-install
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
 
@@ -25,7 +27,6 @@ boot9 is needed:
 
 A [SeedDB](https://github.com/ihaveamac/3DS-rom-tools/wiki/SeedDB-list) is needed for newer games (2015+) that use seeds.  
 SeedDB is checked in order of:
-* `--seeddb` argument (if set)
 * `SEEDDB_PATH` environment variable (if set)
 * `%APPDATA%\3ds\seeddb.bin` (Windows-specific)
 * `~/Library/Application Support/3ds/seeddb.bin` (macOS-specific)
@@ -46,6 +47,21 @@ py -3 custominstall.py -b boot9.bin -m movable.sed --sd E:\ file.cia file2.cia
 python3 custominstall.py -b boot9.bin -m movable.sed --sd /Volumes/GM9SD file.cia file2.cia
 python3 custominstall.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia file2.cia
 ```
+
+## GUI
+GUI wrapper to easily manage your apps.
+
+![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
+
+GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
+
+Special thanks to CrafterPika and archbox for testing.
+
+### GUI Setup
+- Ubuntu/Debian: `sudo apt install python3-tk`
+- Manjaro/Arch: `sudo pacman -S tk`
+- Mac: Sometimes the default tkinter libs that ship with mac don't work, you can get them on the python site - `https://www.python.org/downloads/mac-osx/`
+- Windows: Install python - `Remember to install tcl/tk when doing a custom installation`
 
 ## License/Credits
 `pyctr/` is from [ninfs `795373d`](https://github.com/ihaveamac/ninfs/tree/795373db07be0cacd60215d8eccf16fe03535984/ninfs/pyctr).
