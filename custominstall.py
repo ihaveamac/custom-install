@@ -131,12 +131,16 @@ def save_cifinish(path: 'Union[PathLike, bytes, str]', data: dict):
 
 
 class CustomInstall:
-    def __init__(self, boot9, movable, cias, sd, skip_contents=False):
+
+    cia: CIAReader
+
+    def __init__(self, boot9, seeddb, movable, cias, sd, skip_contents=False):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
 
         self.crypto = CryptoEngine(boot9=boot9)
         self.crypto.setup_sd_key_from_file(movable)
+        self.seeddb = seeddb
         self.cias = cias
         self.sd = sd
         self.skip_contents = skip_contents
@@ -151,7 +155,6 @@ class CustomInstall:
             dst.write(data)
             left -= to_read
             total_read = size - left
-            # self.log(f' {(total_read / size) * 100:>5.1f}%  {total_read / 1048576:>.1f} MiB / {size / 1048576:.1f} MiB')
             self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self):
@@ -178,7 +181,7 @@ class CustomInstall:
         for c in self.cias:
             self.log('Reading ' + c)
 
-            cia = CIAReader(c)
+            cia = CIAReader(c, seeddb=self.seeddb)
             self.cia = cia
             
             tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
@@ -401,8 +404,9 @@ class CustomInstall:
         for d in scandir(sd_path):
             if d.is_dir() and len(d.name) == 32:
                 try:
-                    # id1_tmp = bytes.fromhex(d.name)
-                    pass
+                    # check if the name can be converted to hex
+                    # I'm not sure what the 3DS does if there is a folder that is not a 32-char hex string.
+                    bytes.fromhex(d.name)
                 except ValueError:
                     continue
                 else:
@@ -441,12 +445,14 @@ if __name__ == "__main__":
     parser.add_argument('cia', help='CIA files', nargs='+')
     parser.add_argument('-m', '--movable', help='movable.sed file', required=True)
     parser.add_argument('-b', '--boot9', help='boot9 file')
+    parser.add_argument('-s', '--seeddb', help='seeddb file')
     parser.add_argument('--sd', help='path to SD root', required=True)
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
 
     args = parser.parse_args()
 
     installer = CustomInstall(boot9=args.boot9,
+                              seeddb=args.seeddb,
                               cias=args.cia,
                               movable=args.movable,
                               sd=args.sd,
