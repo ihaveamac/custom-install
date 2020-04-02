@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)]() ![Releases](https://img.shields.io/github/downloads/LyfeOnEdge/custom-install/total.svg)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)]() ![Releases](https://img.shields.io/github/downloads/ihaveamac/custom-install/total.svg)
 
 # custom-install
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
@@ -13,7 +13,7 @@ Experimental script to automate the process of a manual title install for Ninten
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
 
 ## Setup
-Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Just install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build`. Your compiled binary is located in `target/debug/save3ds_fuse`, copy it to `bin/linux`.
+Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build`. The compiled binary is located in `target/debug/save3ds_fuse`, copy it to `bin/linux`.
 
 movable.sed is required and can be provided with `-m` or `--movable`.
 
@@ -49,13 +49,9 @@ python3 custominstall.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia 
 ```
 
 ## GUI
-GUI wrapper to easily manage your apps.
+GUI wrapper to easily manage your apps. (More will go here...)
 
 ![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
-
-GUI by LyfeOnEdge, developed on the brewtools discord - https://www.brewtools.dev
-
-Special thanks to CrafterPika and archbox for testing.
 
 ### GUI Setup
 - Ubuntu/Debian: `sudo apt install python3-tk`
@@ -64,8 +60,10 @@ Special thanks to CrafterPika and archbox for testing.
 - Windows: Install python - `Remember to install tcl/tk when doing a custom installation`
 
 ## License/Credits
-`pyctr/` is from [ninfs `795373d`](https://github.com/ihaveamac/ninfs/tree/795373db07be0cacd60215d8eccf16fe03535984/ninfs/pyctr).
-
 [save3ds by wwylele](https://github.com/wwylele/save3ds) is used to interact with the Title Database (details in `bin/README`).
+
+Thanks to @LyfeOnEdge from the [brewtools Discord](https://brewtools.dev) for designing the GUI. Special thanks to CrafterPika and archbox for testing.
+
+Thanks to @nek0bit for redesigning `custominstall.py` to work as a module, and for implementing an earlier GUI.
 
 Thanks to @BpyH64 for [researching how to generate the cmacs](https://github.com/d0k3/GodMode9/issues/340#issuecomment-487916606).
