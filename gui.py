@@ -1,6 +1,6 @@
 # This file is a part of custom-install.py.
 #
-# Copyright (c) 2019-2020 Ian Burgwin
+# custom-install is copyright (c) 2019-2020 Ian Burgwin
 # This file is licensed under The MIT License (MIT).
 # You can find the full license text in LICENSE.md in the root of this project.
 
