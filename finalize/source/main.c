@@ -156,7 +156,6 @@ void finalize_install(void)
 int main(int argc, char* argv[])
 {
 	amInit();
-	sdmcInit();
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
@@ -179,7 +178,6 @@ int main(int argc, char* argv[])
 	}
 
 	gfxExit();
-	sdmcExit();
 	amExit();
 	return 0;
 }
