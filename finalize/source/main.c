@@ -7,7 +7,6 @@
 #include "basetik_bin.h"
 
 #define CIFINISH_PATH "/cifinish.bin"
-#define REQUIRED_VERSION 3
 
 // 0x10
 struct finish_db_header {
@@ -16,8 +15,30 @@ struct finish_db_header {
 	u32 title_count;
 };
 
+// 0x30
+struct finish_db_entry_v1 {
+	u64 title_id;
+	u8 common_key_index; // unused by this program
+	bool has_seed;
+	u8 magic[6]; // "TITLE" and a null byte
+	u8 title_key[0x10]; // unused by this program
+	u8 seed[0x10];
+};
+
 // 0x20
-struct finish_db_entry {
+// this one was accidential since I mixed up the order of the members in the script
+//   and the finalize program, but a lot of users probably used the bad one so I need
+//   to support this anyway.
+struct finish_db_entry_v2 {
+	u8 magic[6]; // "TITLE" and a null byte
+	u64 title_id;
+	bool has_seed;
+	u8 padding;
+	u8 seed[0x10];
+} __attribute__((packed));
+
+// 0x20
+struct finish_db_entry_v3 {
 	u8 magic[6]; // "TITLE" and a null byte
 	bool has_seed;
 	u64 title_id;
@@ -30,6 +51,13 @@ struct ticket_dumb {
 	u64 title_id_be;
 	u8 unused2[0x16C];
 } __attribute__((packed));
+
+// the 3 versions are put into this struct
+struct finish_db_entry_final {
+	bool has_seed;
+	u64 title_id;
+	u8 seed[0x10];
+};
 
 // from FBI:
 // https://github.com/Steveice10/FBI/blob/6e3a28e4b674e0d7a6f234b0419c530b358957db/source/core/http.c#L440-L453
@@ -48,66 +76,146 @@ static Result FSUSER_AddSeed(u64 titleId, const void* seed) {
 	return ret;
 }
 
+int load_cifinish(char* path, struct finish_db_entry_final **entries)
+{
+	FILE *fp;
+	struct finish_db_header header;
+
+	struct finish_db_entry_v1 v1;
+	struct finish_db_entry_v2 v2;
+	struct finish_db_entry_v3 v3;
+
+	int i;
+	size_t read;
+
+	printf("Reading %s...\n", path);
+	fp = fopen(path, "rb");
+	if (!fp)
+	{
+		printf("Failed to open file. Does it exist?\n");
+		return -1;
+	}
+
+	fread(&header, sizeof(header), 1, fp);
+
+	if (memcmp(header.magic, "CIFINISH", 8))
+	{
+		printf("CIFINISH magic not found.\n");
+		goto fail;
+	}
+
+	printf("CIFINISH version: %lu\n", header.version);
+
+	if (header.version > 3)
+	{
+		printf("This version of custom-install-finalize is\n");
+		printf("  too old. Please update to a new release.\n");
+		goto fail;
+	}
+
+	*entries = calloc(header.title_count, sizeof(struct finish_db_entry_final));
+
+	if (header.version == 1)
+	{
+		for (i = 0; i < header.title_count; i++)
+		{
+			read = fread(&v1, sizeof(v1), 1, fp);
+			if (read != 1)
+			{
+				printf("Couldn't read a full entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+
+			if (memcmp(v1.magic, "TITLE", 6))
+			{
+				printf("Couldn't find TITLE magic for entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+			entries[i]->has_seed = v1.has_seed;
+			entries[i]->title_id = v1.title_id;
+			memcpy(entries[i]->seed, v1.seed, 16);
+		}
+	} else if (header.version == 2) {
+		for (i = 0; i < header.title_count; i++)
+		{
+			read = fread(&v2, sizeof(v2), 1, fp);
+			if (read != 1)
+			{
+				printf("Couldn't read a full entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+
+			if (memcmp(v2.magic, "TITLE", 6))
+			{
+				printf("Couldn't find TITLE magic for entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+			entries[i]->has_seed = v2.has_seed;
+			entries[i]->title_id = v2.title_id;
+			memcpy(entries[i]->seed, v2.seed, 16);
+		}
+	} else if (header.version == 3) {
+		for (i = 0; i < header.title_count; i++)
+		{
+			read = fread(&v3, sizeof(v3), 1, fp);
+			if (read != 1)
+			{
+				printf("Couldn't read a full entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+
+			if (memcmp(v3.magic, "TITLE", 6))
+			{
+				printf("Couldn't find TITLE magic for entry.\n");
+				printf("  Is the file corrupt?\n");
+				goto fail;
+			}
+			entries[i]->has_seed = v3.has_seed;
+			entries[i]->title_id = v3.title_id;
+			memcpy(entries[i]->seed, v3.seed, 16);
+		}
+	}
+
+	return header.title_count;
+
+fail:
+	fclose(fp);
+	return -1;
+}
+
 void finalize_install(void)
 {
 	Result res;
 	Handle ticketHandle;
 	struct ticket_dumb ticket_buf;
-	FILE *fp;
+	struct finish_db_entry_final *entries;
+	int title_count;
 
-	struct finish_db_header header;
-	struct finish_db_entry *entries;
+	title_count = load_cifinish(CIFINISH_PATH, &entries);
+	if (title_count == -1)
+	{
+		free(entries);
+		return;
+	}
+	if (title_count == 0)
+	{
+		printf("No titles to finalize.\n");
+		free(entries);
+		return;
+	}
+
+	//printf("Deleting %s...\n", CIFINISH_PATH);
+	//unlink(CIFINISH_PATH);
 
 	memcpy(&ticket_buf, basetik_bin, basetik_bin_size);
 
-	printf("Reading %s...\n", CIFINISH_PATH);
-	fp = fopen(CIFINISH_PATH, "rb");
-	if (!fp)
+	for (int i = 0; i < title_count; ++i)
 	{
-		puts("Failed to open file.");
-		return;
-	}
-
-	fread(&header, sizeof(struct finish_db_header), 1, fp);
-	
-	if (memcmp(header.magic, "CIFINISH", 8))
-	{
-		printf("CIFINISH magic not found in %s.\n", CIFINISH_PATH);
-		fclose(fp);
-		return;
-	}
-
-	if (header.version != REQUIRED_VERSION)
-	{
-		printf("\n%s was created with a different\n", CIFINISH_PATH);
-		printf("  version of custom-install than this one\n");
-		printf("  supports.\n\n");
-		printf("Make sure you are using the latest version of\n");
-		printf("  custom-install and custom-install-finalize\n");
-		printf("  from the repository on GitHub.\n\n");
-		printf("When you run the script again, you can use\n");
-		printf("  --skip-contents to avoid re-writing the title\n");
-		printf("  contents, so only the Title Database and\n");
-		printf("  cifinish.bin will be modified.\n\n");
-		printf("Expected version %i, got %li\n", REQUIRED_VERSION, header.version);
-		fclose(fp);
-		return;
-	}
-
-	entries = calloc(header.title_count, sizeof(struct finish_db_entry));
-	fread(entries, sizeof(struct finish_db_entry), header.title_count, fp);
-	fclose(fp);
-	printf("Deleting %s...\n", CIFINISH_PATH);
-	unlink(CIFINISH_PATH);
-
-	for (int i = 0; i < header.title_count; ++i)
-	{
-		// this includes the null byte
-		if (memcmp(entries[i].magic, "TITLE", 6))
-		{
-			puts("Couldn't find TITLE magic for entry, skipping.");
-			continue;
-		}
 		printf("Finalizing %016llx...\n", entries[i].title_id);
 
 		ticket_buf.title_id_be = __builtin_bswap64(entries[i].title_id);
@@ -159,10 +267,13 @@ int main(int argc, char* argv[])
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	puts("custom-install-finalize v1.2");
+	printf("custom-install-finalize v1.3\n");
 
 	finalize_install();
-	puts("\nPress START or B to exit.");
+	// print this at the end in case it gets pushed off the screen
+	printf("\nRepository:\n");
+	printf("  https://github.com/ihaveamac/custom-install\n");
+	printf("\nPress START or B to exit.\n");
 
 	// Main loop
 	while (aptMainLoop())
