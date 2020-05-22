@@ -342,7 +342,7 @@ class gui(tk.Tk):
         run_button.place(relwidth=1, rely=1, y=- 22)
 
     def run(self):
-        argstring = ""
+        args_extra = []
 
         self.output_to_console("-----------------------\nStarting...\n")
 
@@ -350,32 +350,33 @@ class gui(tk.Tk):
         if not boot9:
             self.output_to_console(
                 "Warning - boot9 not selected, if it's not set externally you may run into problems.\n")
-        argstring += f"-b {boot9} "
+        else:
+            args_extra.extend(['-b', boot9])
 
         sed = self.sed_box.get()
         if not sed:
             self.output_to_console("Failed to run - No movable.sed selected.\n")
             return
-        argstring += f"-m {sed} "
+        args_extra.extend(['-m', sed])
 
         sd = self.sd_box.get().strip()
         if not sd:
             self.output_to_console("Failed to run - SD path not selected.\n")
             return
-        argstring += f"--sd {sd} "
+        args_extra.extend(['--sd', sd])
 
         cias = []
         for i in range(0, self.cia_box.size()):
             cias.append(self.cia_box.get(i).strip())
         for cia in cias:
-            argstring += f" {cia}"
+            args_extra.append(cia)
 
         if self.skip_contents.get():
-            argstring += "--skip-contents "
+            args_extra.append('--skip-contents')
 
-        print(f"Running custom-install.py with args {args}\n")
+        print(f"Running custom-install.py with args {args_extra}\n")
 
-        self.threader.do_async(execute_script, [argstring, self.output_to_console])
+        self.threader.do_async(execute_script, [args_extra, self.output_to_console])
 
     def output_to_console(self, outstring):
         self.console.insert('end', outstring)
@@ -410,12 +411,11 @@ class gui(tk.Tk):
                     self.cia_box.select_set(0)
 
 
-def execute_script(argstring, printer):
+def execute_script(args_extra, printer):
     """Wrapper function to pipe install script output to a printer"""
     try:
         args = [sys.executable, '-u', os.path.join(os.path.dirname(__file__), "custominstall.py")]
-        for arg in argstring.split():
-            args.append(arg.strip())
+        args.extend(args_extra)
         p = subprocess.Popen(args,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT,
