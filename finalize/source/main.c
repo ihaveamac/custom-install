@@ -85,6 +85,8 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 	struct finish_db_entry_v2 v2;
 	struct finish_db_entry_v3 v3;
 
+	struct finish_db_entry_final *tmp;
+
 	int i;
 	size_t read;
 
@@ -114,6 +116,12 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 	}
 
 	*entries = calloc(header.title_count, sizeof(struct finish_db_entry_final));
+	if (!*entries) {
+		printf("Couldn't allocate memory.\n");
+		printf("This should never happen.\n");
+		goto fail;
+	}
+	tmp = *entries;
 
 	if (header.version == 1)
 	{
@@ -133,9 +141,9 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 				printf("  Is the file corrupt?\n");
 				goto fail;
 			}
-			entries[i]->has_seed = v1.has_seed;
-			entries[i]->title_id = v1.title_id;
-			memcpy(entries[i]->seed, v1.seed, 16);
+			tmp[i].has_seed = v1.has_seed;
+			tmp[i].title_id = v1.title_id;
+			memcpy(tmp[i].seed, v1.seed, 16);
 		}
 	} else if (header.version == 2) {
 		for (i = 0; i < header.title_count; i++)
@@ -154,9 +162,9 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 				printf("  Is the file corrupt?\n");
 				goto fail;
 			}
-			entries[i]->has_seed = v2.has_seed;
-			entries[i]->title_id = v2.title_id;
-			memcpy(entries[i]->seed, v2.seed, 16);
+			tmp[i].has_seed = v2.has_seed;
+			tmp[i].title_id = v2.title_id;
+			memcpy(tmp[i].seed, v2.seed, 16);
 		}
 	} else if (header.version == 3) {
 		for (i = 0; i < header.title_count; i++)
@@ -175,9 +183,9 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 				printf("  Is the file corrupt?\n");
 				goto fail;
 			}
-			entries[i]->has_seed = v3.has_seed;
-			entries[i]->title_id = v3.title_id;
-			memcpy(entries[i]->seed, v3.seed, 16);
+			tmp[i].has_seed = v3.has_seed;
+			tmp[i].title_id = v3.title_id;
+			memcpy(tmp[i].seed, v3.seed, 16);
 		}
 	}
 
@@ -267,7 +275,7 @@ int main(int argc, char* argv[])
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	printf("custom-install-finalize v1.3\n");
+	printf("custom-install-finalize v1.4\n");
 
 	finalize_install();
 	// print this at the end in case it gets pushed off the screen
