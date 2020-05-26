@@ -162,14 +162,11 @@ class CustomInstall:
         # TODO: Move a lot of these into their own methods
         self.log("Finding path to install to...")
         [sd_path, id1s] = self.get_sd_path()
-        try:
-            if len(id1s) > 1:
-                raise SDPathError(f'There are multiple id1 directories for id0 {crypto.id0.hex()}, '
-                                  f'please remove extra directories')
-            elif len(id1s) == 0:
-                raise SDPathError(f'Could not find a suitable id1 directory for id0 {crypto.id0.hex()}')
-        except SDPathError:
-            self.log("")
+        if len(id1s) > 1:
+            raise SDPathError(f'There are multiple id1 directories for id0 {crypto.id0.hex()}, '
+                              f'please remove extra directories')
+        elif len(id1s) == 0:
+            raise SDPathError(f'Could not find a suitable id1 directory for id0 {crypto.id0.hex()}')
 
         cifinish_path = join(self.sd, 'cifinish.bin')
         sd_path = join(sd_path, id1s[0])
@@ -369,34 +366,39 @@ class CustomInstall:
 
             cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (cia.contents[0].seed if cia.contents[0].flags.uses_seed else None)}
 
+        # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
         save_cifinish(cifinish_path, cifinish_data)
 
-        with TemporaryDirectory(suffix='-custom-install') as tempdir:
-            # set up the common arguments for the two times we call save3ds_fuse
-            save3ds_fuse_common_args = [
-                join(script_dir, 'bin', platform, 'save3ds_fuse'),
-                '-b', crypto.b9_path,
-                '-m', self.movable,
-                '--sd', self.sd,
-                '--db', 'sdtitle',
-                tempdir
-            ]
+        if title_info_entries:
+            with TemporaryDirectory(suffix='-custom-install') as tempdir:
+                # set up the common arguments for the two times we call save3ds_fuse
+                save3ds_fuse_common_args = [
+                    join(script_dir, 'bin', platform, 'save3ds_fuse'),
+                    '-b', crypto.b9_path,
+                    '-m', self.movable,
+                    '--sd', self.sd,
+                    '--db', 'sdtitle',
+                    tempdir
+                ]
 
-            # extract the title database to add our own entry to
-            self.log('Extracting Title Database...')
-            subprocess.run(save3ds_fuse_common_args + ['-x'])
+                # extract the title database to add our own entry to
+                self.log('Extracting Title Database...')
+                subprocess.run(save3ds_fuse_common_args + ['-x'])
 
-            for title_id, entry in title_info_entries.items():
-                # write the title info entry to the temp directory
-                with open(join(tempdir, title_id), 'wb') as o:
-                    o.write(entry)
+                for title_id, entry in title_info_entries.items():
+                    # write the title info entry to the temp directory
+                    with open(join(tempdir, title_id), 'wb') as o:
+                        o.write(entry)
 
-            # import the directory, now including our title
-            self.log('Importing into Title Database...')
-            subprocess.run(save3ds_fuse_common_args + ['-i'])
+                # import the directory, now including our title
+                self.log('Importing into Title Database...')
+                subprocess.run(save3ds_fuse_common_args + ['-i'])
 
-        self.log('FINAL STEP:\nRun custom-install-finalize through homebrew launcher.')
-        self.log('This will install a ticket and seed if required.')
+            self.log('FINAL STEP:\nRun custom-install-finalize through homebrew launcher.')
+            self.log('This will install a ticket and seed if required.')
+
+        else:
+            self.log('Did not install any titles.', 2)
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
