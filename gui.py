@@ -11,13 +11,6 @@ import tkinter as tk
 import tkinter.filedialog as tkfiledialog
 import style
 
-
-# BUTTON_COLOR =
-# BUTTON_HIGHLIGHT_COLOR =  
-# BUTTON_FONT = 
-
-# Custom button
-
 class themedFrame(tk.Frame):
     def __init__(self, frame, **kw):
         tk.Frame.__init__(self, frame, **kw)
@@ -27,7 +20,6 @@ class themedFrame(tk.Frame):
             self.configure(borderwidth=0)
         if not kw.get("highlightthickness"):
             self.configure(highlightthickness=0)
-
 
 class Button(tk.Label):
     """Cross-platform button"""
