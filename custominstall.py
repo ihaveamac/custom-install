@@ -226,20 +226,20 @@ class CustomInstall:
             title_root_cmd = f'/title/{"/".join(tid_parts)}'
             content_root_cmd = title_root_cmd + '/content'
 
-            makedirs(join(content_root, 'cmd'), exist_ok=True)
-            if cia.tmd.save_size:
-                makedirs(join(title_root, 'data'), exist_ok=True)
-            if is_dlc:
-                # create the separate directories for every 256 contents
-                for x in range(((len(cia.content_info) - 1) // 256) + 1):
-                    makedirs(join(content_root, f'{x:08x}'))
-
-            # maybe this will be changed in the future
-            tmd_id = 0
-
-            tmd_filename = f'{tmd_id:08x}.tmd'
-
             if not self.skip_contents:
+                makedirs(join(content_root, 'cmd'), exist_ok=True)
+                if cia.tmd.save_size:
+                    makedirs(join(title_root, 'data'), exist_ok=True)
+                if is_dlc:
+                    # create the separate directories for every 256 contents
+                    for x in range(((len(cia.content_info) - 1) // 256) + 1):
+                        makedirs(join(content_root, f'{x:08x}'), exist_ok=True)
+
+                # maybe this will be changed in the future
+                tmd_id = 0
+
+                tmd_filename = f'{tmd_id:08x}.tmd'
+
                 # write the tmd
                 enc_path = content_root_cmd + '/' + tmd_filename
                 self.log(f'Writing {enc_path}...')
