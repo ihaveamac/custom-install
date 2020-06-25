@@ -11,13 +11,6 @@ import tkinter as tk
 import tkinter.filedialog as tkfiledialog
 import style
 
-
-# BUTTON_COLOR =
-# BUTTON_HIGHLIGHT_COLOR =  
-# BUTTON_FONT = 
-
-# Custom button
-
 class themedFrame(tk.Frame):
     def __init__(self, frame, **kw):
         tk.Frame.__init__(self, frame, **kw)
@@ -27,7 +20,6 @@ class themedFrame(tk.Frame):
             self.configure(borderwidth=0)
         if not kw.get("highlightthickness"):
             self.configure(highlightthickness=0)
-
 
 class Button(tk.Label):
     """Cross-platform button"""
@@ -304,9 +296,13 @@ class gui(tk.Tk):
         self.boot9_box.place(relwidth=1, height=20, x=0, y=60)
         CreateToolTip(self.boot9_box.xtainer, "Select the path to boot9.bin, this can be dumped from a 3ds")
 
+        self.seeddb_box = LabeledPathEntry(outer_frame, "Path to seeddb file -", filetypes=[('seeddb file', '*.bin')])
+        self.seeddb_box.place(relwidth=1, height=20, x=0, y=90)
+        CreateToolTip(self.seeddb_box.xtainer, "Select the path to seeddb.bin, this can retrieved from online")
+
         # -------------------------------------------------
         cia_container = themedFrame(outer_frame, borderwidth=0, highlightthickness=0)
-        cia_container.place(y=90, relwidth=1, height=115)
+        cia_container.place(y=120, relwidth=1, height=190)
 
         cia_label = tk.Label(cia_container, text="cia paths - ", foreground=style.LABEL_COLOR,
                              background=style.BACKGROUND_COLOR)
@@ -318,26 +314,26 @@ class gui(tk.Tk):
                       "Select the cias you wish to install to the sd card. The `add folder` button will add all cias in the selected folder, but will not check subdirs. The `remove cia` button will remove the currently selected file from the listbox.")
 
         add_cia_button = Button(cia_container, self.add_cia, text="add cia", font=style.monospace)
-        add_cia_button.place(relx=0, relwidth=0.333, height=20, y=92, width=- 6)
+        add_cia_button.place(relx=0, relwidth=0.333, height=20, y=95, width=- 6)
 
         add_cia_folder_button = Button(cia_container, self.add_cia_folder, text="add folder", font=style.monospace)
-        add_cia_folder_button.place(relx=0.333, relwidth=0.333, height=20, y=92, x=+ 3, width=- 6)
+        add_cia_folder_button.place(relx=0.333, relwidth=0.333, height=20, y=95, x=+ 3, width=- 6)
 
         remove_cia_button = Button(cia_container, self.remove_cia, text="remove cia", font=style.monospace)
-        remove_cia_button.place(relx=0.666, relwidth=0.333, height=20, y=92, x=+ 6, width=- 6)
+        remove_cia_button.place(relx=0.666, relwidth=0.333, height=20, y=95, x=+ 6, width=- 6)
         # -------------------------------------------------
 
         self.skip_contents = tk.IntVar()
         skip_contents_checkbutton = tk.Checkbutton(outer_frame, text="Skip contents? (only add title info)",
                                                    variable=self.skip_contents, background=style.BACKGROUND_COLOR,
                                                    foreground=style.LABEL_COLOR, borderwidth=0, highlightthickness=0)
-        skip_contents_checkbutton.place(relwidth=1, y=205, height=20)
+        skip_contents_checkbutton.place(relwidth=1, y=239, height=20)
 
         console_label = tk.Label(outer_frame, text="Console:", background="black", foreground="white",
                                  font=style.boldmonospace, borderwidth=0, highlightthickness=0)
-        console_label.place(relwidth=1, height=20, y=230)
+        console_label.place(relwidth=1, height=20, y=260)
         self.console = ScrolledText(outer_frame, background="black", foreground="white", highlightthickness=0)
-        self.console.place(relwidth=1, relheight=1, y=250, height=- 272)
+        self.console.place(relwidth=1, relheight=1, y=280, height=- 272)
         run_button = Button(outer_frame, self.run, text="run", font=style.boldmonospace)
         run_button.place(relwidth=1, rely=1, y=- 22)
 
@@ -364,6 +360,11 @@ class gui(tk.Tk):
             self.output_to_console("Failed to run - SD path not selected.\n")
             return
         args_extra.extend(['--sd', sd])
+
+        seed = self.seeddb_box.get().strip()
+        if not seed:
+            self.output_to_console("Optional Seeddb not given - Certain CIAs May Require This!\n")
+        args_extra.extend(['--seeddb', seed])
 
         cias = []
         for i in range(0, self.cia_box.size()):
