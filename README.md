@@ -4,6 +4,8 @@
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
 
 ## Summary
+Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! Python is installed with the `py` launcher by default.
+
 1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
 2. Install the packages:
   * Windows: `py -3 -m pip install --user -r requirements.txt`
