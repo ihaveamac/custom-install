@@ -416,8 +416,8 @@ class gui(tk.Tk):
 
 def execute_script(args_extra, printer):
     """Wrapper function to pipe install script output to a printer"""
+    args = [sys.executable, '-u', os.path.join(os.path.dirname(__file__), "custominstall.py")]
     try:
-        args = [sys.executable, '-u', os.path.join(os.path.dirname(__file__), "custominstall.py")]
         args.extend(args_extra)
         p = subprocess.Popen(args,
                              stdout=subprocess.PIPE,
@@ -430,7 +430,7 @@ def execute_script(args_extra, printer):
                 printer(line)
         p.wait()
     except Exception as e:
-        printer(f"Error while executing script with args - {argstring} | Exception - {e}\n")
+        printer(f"Error while executing script with args - {args} | Exception - {e}\n")
 
 
 t = threader_object()
