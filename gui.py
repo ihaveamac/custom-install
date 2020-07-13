@@ -11,6 +11,7 @@ import tkinter as tk
 import tkinter.filedialog as tkfiledialog
 import style
 
+
 class themedFrame(tk.Frame):
     def __init__(self, frame, **kw):
         tk.Frame.__init__(self, frame, **kw)
@@ -20,6 +21,7 @@ class themedFrame(tk.Frame):
             self.configure(borderwidth=0)
         if not kw.get("highlightthickness"):
             self.configure(highlightthickness=0)
+
 
 class Button(tk.Label):
     """Cross-platform button"""
@@ -395,7 +397,7 @@ class gui(tk.Tk):
                            (os.path.isfile(os.path.join(cia_dir_to_add, f)) and f.endswith(".cia"))]
             if cias_to_add:
                 for cia_to_add in cias_to_add:
-                    self.cia_box.insert('end', cia_to_add)
+                    self.cia_box.insert('end', os.path.join(cia_dir_to_add, cia_to_add))
 
     def remove_cia(self):
         index = self.cia_box.curselection()
