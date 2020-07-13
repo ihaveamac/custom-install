@@ -134,7 +134,7 @@ class CustomInstall:
 
     cia: CIAReader
 
-    def __init__(self, boot9, seeddb, movable, cias, sd, skip_contents=False):
+    def __init__(self, boot9, seeddb, movable, cias, sd, cifinish_out=None, skip_contents=False):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
 
@@ -144,6 +144,7 @@ class CustomInstall:
         self.cias = cias
         self.sd = sd
         self.skip_contents = skip_contents
+        self.cifinish_out = cifinish_out
         self.movable = movable
 
     def copy_with_progress(self, src: BinaryIO, dst: BinaryIO, size: int, path: str):
@@ -168,7 +169,10 @@ class CustomInstall:
         elif len(id1s) == 0:
             raise SDPathError(f'Could not find a suitable id1 directory for id0 {crypto.id0.hex()}')
 
-        cifinish_path = join(self.sd, 'cifinish.bin')
+        if self.cifinish_out:
+            cifinish_path = self.cifinish_out
+        else:
+            cifinish_path = join(self.sd, 'cifinish.bin')
         sd_path = join(sd_path, id1s[0])
         title_info_entries = {}
         cifinish_data = load_cifinish(cifinish_path)
@@ -457,6 +461,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--seeddb', help='seeddb file')
     parser.add_argument('--sd', help='path to SD root', required=True)
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
+    parser.add_argument('--cifinish-out', help='path for cifinish.bin file, defaults to (SD root)/cifinish.bin')
 
     args = parser.parse_args()
 
@@ -465,6 +470,7 @@ if __name__ == "__main__":
                               cias=args.cia,
                               movable=args.movable,
                               sd=args.sd,
+                              cifinish_out=args.cifinish_out,
                               skip_contents=(args.skip_contents or False))
 
     def log_handle(msg, end='\n'):
