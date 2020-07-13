@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 from events import Events
 
-from pyctr.crypto import CryptoEngine, Keyslot
+from pyctr.crypto import CryptoEngine, Keyslot, load_seeddb
 from pyctr.type.cia import CIAReader, CIASection
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
@@ -173,12 +173,19 @@ class CustomInstall:
         title_info_entries = {}
         cifinish_data = load_cifinish(cifinish_path)
 
+        load_seeddb(self.seeddb)
+
         # Now loop through all provided cia files
         
         for c in self.cias:
             self.log('Reading ' + c)
 
-            cia = CIAReader(c, seeddb=self.seeddb)
+            try:
+                cia = CIAReader(c)
+            except Exception as e:
+                self.log(f'Failed to load file: {type(e).__name__}: {e}')
+                continue
+
             self.cia = cia
             
             tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
