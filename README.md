@@ -7,10 +7,10 @@ Experimental script to automate the process of a manual title install for Ninten
 Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! Python is installed with the `py` launcher by default.
 
 1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
-2. Install the packages:
+2. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/module-new-gui.zip) or `git clone`)
+3. Install the packages:
   * Windows: `py -3 -m pip install --user -r requirements.txt`
   * macOS/Linux: `python3 -m pip install --user -r requirements.txt`
-3. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/master.zip) or `git clone`)
 4. Run `custominstall.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
 
