@@ -27,6 +27,8 @@ from pyctr.type.cia import CIAReader, CIASection
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
 
+is_windows = sys.platform == 'win32'
+
 # used to run the save3ds_fuse binary next to the script
 script_dir: str = dirname(__file__)
 
@@ -167,7 +169,7 @@ class CustomInstall:
             save3ds_fuse_path = join(dirname(sys.executable), 'bin', 'save3ds_fuse')
         else:
             save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
-        if sys.platform == 'win32':
+        if is_windows:
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
             self.log("Couldn't find " + save3ds_fuse_path, 2)
@@ -412,12 +414,18 @@ class CustomInstall:
                     tempdir
                 ]
 
+                extra_kwargs = {}
+                if is_windows:
+                    # hide console window
+                    extra_kwargs['creationflags'] = 0x08000000  # CREATE_NO_WINDOW
+
                 # extract the title database to add our own entry to
                 self.log('Extracting Title Database...')
                 out = subprocess.run(save3ds_fuse_common_args + ['-x'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     encoding=getpreferredencoding())
+                                     encoding=getpreferredencoding(),
+                                     **extra_kwargs)
                 if out.returncode:
                     for l in out.stdout.split('\n'):
                         self.log(l)
@@ -433,7 +441,8 @@ class CustomInstall:
                 out = subprocess.run(save3ds_fuse_common_args + ['-i'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     encoding=getpreferredencoding())
+                                     encoding=getpreferredencoding(),
+                                     **extra_kwargs)
                 if out.returncode:
                     for l in out.stdout.split('\n'):
                         self.log(l)
