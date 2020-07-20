@@ -162,11 +162,11 @@ class CustomInstall:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self, continue_on_fail=True):
-        using_cxfreeze = getattr(sys, 'frozen', False)
-        if using_cxfreeze:
-            save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
-        else:
+        frozen = getattr(sys, 'frozen', False)
+        if frozen:
             save3ds_fuse_path = join(dirname(sys.executable), 'bin', 'save3ds_fuse')
+        else:
+            save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
         if sys.platform == 'win32':
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
