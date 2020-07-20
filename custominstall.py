@@ -10,7 +10,7 @@ from os.path import dirname, join, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
-from sys import exc_info, platform
+import sys
 from tempfile import TemporaryDirectory
 from traceback import format_exception
 from typing import BinaryIO, TYPE_CHECKING
@@ -162,8 +162,12 @@ class CustomInstall:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self, continue_on_fail=True):
-        save3ds_fuse_path = join(script_dir, 'bin', platform, 'save3ds_fuse')
-        if platform == 'win32':
+        using_cxfreeze = getattr(sys, 'frozen', False)
+        if using_cxfreeze:
+            save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
+        else:
+            save3ds_fuse_path = join(dirname(sys.executable), 'bin', 'save3ds_fuse')
+        if sys.platform == 'win32':
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
             self.log("Couldn't find " + save3ds_fuse_path, 2)
@@ -197,7 +201,7 @@ class CustomInstall:
             try:
                 cia = CIAReader(c)
             except Exception as e:
-                self.event.on_error(exc_info())
+                self.event.on_error(sys.exc_info())
                 if continue_on_fail:
                     continue
                 else:
