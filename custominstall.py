@@ -9,8 +9,10 @@ from os import makedirs, scandir
 from os.path import dirname, join
 from random import randint
 from hashlib import sha256
-from sys import platform
+from locale import getpreferredencoding
+from sys import exc_info, platform
 from tempfile import TemporaryDirectory
+from traceback import format_exception
 from typing import BinaryIO, TYPE_CHECKING
 import subprocess
 
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
 
 from events import Events
 
-from pyctr.crypto import CryptoEngine, Keyslot, load_seeddb
+from pyctr.crypto import CryptoEngine, Keyslot, load_seeddb, get_seed
 from pyctr.type.cia import CIAReader, CIASection
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
@@ -147,7 +149,7 @@ class CustomInstall:
         self.cifinish_out = cifinish_out
         self.movable = movable
 
-    def copy_with_progress(self, src: BinaryIO, dst: BinaryIO, size: int, path: str):
+    def copy_with_progress(self, src: BinaryIO, dst: BinaryIO, size: int, path: str, fire_event: bool = True):
         left = size
         cipher = self.crypto.create_ctr_cipher(Keyslot.SD, self.crypto.sd_path_to_iv(path))
         while left > 0:
@@ -156,9 +158,10 @@ class CustomInstall:
             dst.write(data)
             left -= to_read
             total_read = size - left
-            self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
+            if fire_event:
+                self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
-    def start(self):
+    def start(self, continue_on_fail=True):
         crypto = self.crypto
         # TODO: Move a lot of these into their own methods
         self.log("Finding path to install to...")
@@ -181,14 +184,19 @@ class CustomInstall:
 
         # Now loop through all provided cia files
         
-        for c in self.cias:
+        for idx, c in enumerate(self.cias):
             self.log('Reading ' + c)
 
             try:
                 cia = CIAReader(c)
             except Exception as e:
-                self.log(f'Failed to load file: {type(e).__name__}: {e}')
-                continue
+                self.event.on_error(exc_info())
+                if continue_on_fail:
+                    continue
+                else:
+                    return
+
+            self.event.on_cia_start(idx)
 
             self.cia = cia
             
@@ -256,7 +264,8 @@ class CustomInstall:
                 self.log(f'Writing {enc_path}...')
                 with cia.open_raw_section(CIASection.TitleMetadata) as s:
                     with open(join(content_root, tmd_filename), 'wb') as o:
-                        self.copy_with_progress(s, o, cia.sections[CIASection.TitleMetadata].size, enc_path)
+                        self.copy_with_progress(s, o, cia.sections[CIASection.TitleMetadata].size, enc_path,
+                                                fire_event=False)
 
                 # write each content
                 for co in cia.content_info:
@@ -375,7 +384,7 @@ class CustomInstall:
 
             title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
-            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (cia.contents[0].seed if cia.contents[0].flags.uses_seed else None)}
+            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
 
         # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
         save_cifinish(cifinish_path, cifinish_data)
@@ -394,7 +403,14 @@ class CustomInstall:
 
                 # extract the title database to add our own entry to
                 self.log('Extracting Title Database...')
-                subprocess.run(save3ds_fuse_common_args + ['-x'])
+                out = subprocess.run(save3ds_fuse_common_args + ['-x'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT,
+                                     encoding=getpreferredencoding())
+                if out.returncode:
+                    for l in out.stdout.split('\n'):
+                        self.log(l)
+                    return False
 
                 for title_id, entry in title_info_entries.items():
                     # write the title info entry to the temp directory
@@ -403,13 +419,23 @@ class CustomInstall:
 
                 # import the directory, now including our title
                 self.log('Importing into Title Database...')
-                subprocess.run(save3ds_fuse_common_args + ['-i'])
+                out = subprocess.run(save3ds_fuse_common_args + ['-i'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT,
+                                     encoding=getpreferredencoding())
+                if out.returncode:
+                    for l in out.stdout.split('\n'):
+                        self.log(l)
+                    return False
 
-            self.log('FINAL STEP:\nRun custom-install-finalize through homebrew launcher.')
+            self.log('FINAL STEP:')
+            self.log('Run custom-install-finalize through homebrew launcher.')
             self.log('This will install a ticket and seed if required.')
+            return True
 
         else:
             self.log('Did not install any titles.', 2)
+            return None
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
@@ -479,7 +505,16 @@ if __name__ == "__main__":
     def percent_handle(total_percent, total_read, size):
         installer.log(f' {total_percent:>5.1f}%  {total_read:>.1f} MiB / {size:.1f} MiB\r', end='')
 
+    def error(exc):
+        for line in format_exception(*exc):
+            for line2 in line.split('\n')[:-1]:
+                installer.log(line2)
+
     installer.event.on_log_msg += log_handle
     installer.event.update_percentage += percent_handle
+    installer.event.on_error += error
 
-    installer.start()
+    result = installer.start(continue_on_fail=False)
+    if result is False:
+        # save3ds_fuse failed
+        installer.log('NOTE: Once save3ds_fuse is fixed, run the same command again with --skip-contents')
