@@ -375,7 +375,7 @@ class CustomInstall:
 
             title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
-            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (cia.contents[0].seed if cia.contents[0].flags.uses_seed else None)}
+            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
 
         # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
         save_cifinish(cifinish_path, cifinish_data)
