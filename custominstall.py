@@ -6,7 +6,7 @@
 
 from argparse import ArgumentParser
 from os import makedirs, scandir
-from os.path import dirname, join
+from os.path import dirname, join, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
@@ -162,6 +162,13 @@ class CustomInstall:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self, continue_on_fail=True):
+        save3ds_fuse_path = join(script_dir, 'bin', platform, 'save3ds_fuse')
+        if platform == 'win32':
+            save3ds_fuse_path += '.exe'
+        if not isfile(save3ds_fuse_path):
+            self.log("Couldn't find " + save3ds_fuse_path, 2)
+            return
+
         crypto = self.crypto
         # TODO: Move a lot of these into their own methods
         self.log("Finding path to install to...")
@@ -393,7 +400,7 @@ class CustomInstall:
             with TemporaryDirectory(suffix='-custom-install') as tempdir:
                 # set up the common arguments for the two times we call save3ds_fuse
                 save3ds_fuse_common_args = [
-                    join(script_dir, 'bin', platform, 'save3ds_fuse'),
+                    save3ds_fuse_path,
                     '-b', crypto.b9_path,
                     '-m', self.movable,
                     '--sd', self.sd,
