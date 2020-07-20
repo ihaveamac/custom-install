@@ -7,9 +7,9 @@ Experimental script to automate the process of a manual title install for Ninten
 Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! Python is installed with the `py` launcher by default.
 
 1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
-2. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/module-new-gui.zip) or `git clone`)
+2. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/module-newer-gui.zip) or `git clone`)
 3. Install the packages:
-  * Windows: `py -3 -m pip install --user -r requirements.txt`
+  * Windows: `py -3 -m pip install --user -r requirements-win32.txt`
   * macOS/Linux: `python3 -m pip install --user -r requirements.txt`
 4. Run `custominstall.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
@@ -52,21 +52,20 @@ python3 custominstall.py -b boot9.bin -m movable.sed --sd /media/GM9SD file.cia 
 ```
 
 ## GUI
-GUI wrapper to easily manage your apps. (More will go here...)
-
-![GUI](https://raw.githubusercontent.com/LyfeOnEdge/custom-install/master/docu/main.png)
+A GUI is provided to make the process easier.
 
 ### GUI Setup
+Linux users may need to install a Tk package:
 - Ubuntu/Debian: `sudo apt install python3-tk`
 - Manjaro/Arch: `sudo pacman -S tk`
-- Mac: Sometimes the default tkinter libs that ship with mac don't work, you can get them on the python site - `https://www.python.org/downloads/mac-osx/`
-- Windows: Install python - `Remember to install tcl/tk when doing a custom installation`
+
+Install the requirements listed in "Summary", then run `ci-gui.py`.
 
 ## License/Credits
 [save3ds by wwylele](https://github.com/wwylele/save3ds) is used to interact with the Title Database (details in `bin/README`).
 
-Thanks to @LyfeOnEdge from the [brewtools Discord](https://brewtools.dev) for designing the GUI. Special thanks to CrafterPika and archbox for testing.
-
 Thanks to @nek0bit for redesigning `custominstall.py` to work as a module, and for implementing an earlier GUI.
+
+Thanks to @LyfeOnEdge from the [brewtools Discord](https://brewtools.dev) for designing the second version of the GUI. Special thanks to CrafterPika and archbox for testing.
 
 Thanks to @BpyH64 for [researching how to generate the cmacs](https://github.com/d0k3/GodMode9/issues/340#issuecomment-487916606).
