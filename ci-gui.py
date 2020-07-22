@@ -25,13 +25,17 @@ if TYPE_CHECKING:
     from typing import List
 
 is_windows = platform == 'win32'
+taskbar = None
 if is_windows:
-    import comtypes.client as cc
+    try:
+        import comtypes.client as cc
 
-    tbl = cc.GetModule('TaskbarLib.tlb')
+        tbl = cc.GetModule('TaskbarLib.tlb')
 
-    taskbar = cc.CreateObject('{56FDF344-FD6D-11D0-958A-006097C9A090}', interface=tbl.ITaskbarList3)
-    taskbar.HrInit()
+        taskbar = cc.CreateObject('{56FDF344-FD6D-11D0-958A-006097C9A090}', interface=tbl.ITaskbarList3)
+        taskbar.HrInit()
+    except ModuleNotFoundError:
+        pass
 
 file_parent = dirname(__file__)
 
@@ -106,7 +110,7 @@ class CustomInstallGUI(ttk.Frame):
         self.rowconfigure(2, weight=1)
         self.columnconfigure(0, weight=1)
 
-        if is_windows:
+        if taskbar:
             # this is so progress can be shown in the taskbar
             def setup_tab():
                 self.hwnd = int(parent.wm_frame(), 16)
@@ -267,6 +271,10 @@ class CustomInstallGUI(ttk.Frame):
         self.log('custom-install by ihaveamac', status=False)
         self.log('https://github.com/ihaveamac/custom-install', status=False)
 
+        if is_windows and not taskbar:
+            self.log('Note: comtypes module not found.')
+            self.log('Note: Progress will not be shown in the Windows taskbar.')
+
         self.log('Ready.')
 
         self.disable_during_install = (add_cias, add_dirs, remove_selected, start, *self.file_picker_textboxes.values())
@@ -364,11 +372,11 @@ class CustomInstallGUI(ttk.Frame):
 
         def ci_update_percentage(total_percent, total_read, size):
             self.progressbar.config(value=total_percent + finished_percent)
-            if is_windows:
+            if taskbar:
                 taskbar.SetProgressValue(self.hwnd, int(total_percent + finished_percent), max_percentage)
 
         def ci_on_error(exc):
-            if is_windows:
+            if taskbar:
                 taskbar.SetProgressState(self.hwnd, tbl.TBPF_ERROR)
             for line in format_exception(*exc):
                 for line2 in line.split('\n')[:-1]:
@@ -379,7 +387,7 @@ class CustomInstallGUI(ttk.Frame):
         def ci_on_cia_start(idx):
             nonlocal finished_percent
             finished_percent = idx * 100
-            if is_windows:
+            if taskbar:
                 taskbar.SetProgressValue(self.hwnd, finished_percent, max_percentage)
 
         installer.event.on_log_msg += ci_on_log_msg
@@ -387,7 +395,7 @@ class CustomInstallGUI(ttk.Frame):
         installer.event.on_error += ci_on_error
         installer.event.on_cia_start += ci_on_cia_start
 
-        if is_windows:
+        if taskbar:
             taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
 
         def install():
@@ -402,8 +410,8 @@ class CustomInstallGUI(ttk.Frame):
                     self.open_console()
             except:
                 installer.event.on_error(exc_info())
-
-            self.enable_buttons()
+            finally:
+                self.enable_buttons()
 
         Thread(target=install).start()
 
