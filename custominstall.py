@@ -138,7 +138,8 @@ class CustomInstall:
 
     cia: CIAReader
 
-    def __init__(self, boot9, seeddb, movable, cias, sd, cifinish_out=None, skip_contents=False):
+    def __init__(self, boot9, seeddb, movable, cias, sd, cifinish_out=None,
+                 overwrite_saves=False, skip_contents=False):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
 
@@ -148,6 +149,7 @@ class CustomInstall:
         self.cias = cias
         self.sd = sd
         self.skip_contents = skip_contents
+        self.overwrite_saves = overwrite_saves
         self.cifinish_out = cifinish_out
         self.movable = movable
 
@@ -298,13 +300,16 @@ class CustomInstall:
                 if cia.tmd.save_size:
                     enc_path = title_root_cmd + '/data/00000001.sav'
                     out_path = join(title_root, 'data', '00000001.sav')
-                    cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
-                    # in a new save, the first 0x20 are all 00s. the rest can be random
-                    data = cipher.encrypt(b'\0' * 0x20)
-                    self.log(f'Generating blank save at {enc_path}...')
-                    with open(out_path, 'wb') as o:
-                        o.write(data)
-                        o.write(b'\0' * (cia.tmd.save_size - 0x20))
+                    if self.overwrite_saves or not isfile(out_path):
+                        cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
+                        # in a new save, the first 0x20 are all 00s. the rest can be random
+                        data = cipher.encrypt(b'\0' * 0x20)
+                        self.log(f'Generating blank save at {enc_path}...')
+                        with open(out_path, 'wb') as o:
+                            o.write(data)
+                            o.write(b'\0' * (cia.tmd.save_size - 0x20))
+                    else:
+                        self.log(f'Not overwriting existing save at {enc_path}')
 
                 # generate and write cmd
                 enc_path = content_root_cmd + '/cmd/' + cmd_filename
@@ -507,6 +512,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--seeddb', help='seeddb file')
     parser.add_argument('--sd', help='path to SD root', required=True)
     parser.add_argument('--skip-contents', help="don't add contents, only add title info entry", action='store_true')
+    parser.add_argument('--overwrite-saves', help='overwrite existing save files', action='store_true')
     parser.add_argument('--cifinish-out', help='path for cifinish.bin file, defaults to (SD root)/cifinish.bin')
 
     args = parser.parse_args()
@@ -516,6 +522,7 @@ if __name__ == "__main__":
                               cias=args.cia,
                               movable=args.movable,
                               sd=args.sd,
+                              overwrite_saves=args.overwrite_saves,
                               cifinish_out=args.cifinish_out,
                               skip_contents=(args.skip_contents or False))
 
