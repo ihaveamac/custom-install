@@ -250,11 +250,16 @@ class CustomInstallGUI(ttk.Frame):
                                                  variable=self.skip_contents_var)
         skip_contents_checkbox.grid(row=0, column=0)
 
+        self.overwrite_saves_var = tk.IntVar()
+        overwrite_saves_checkbox = ttk.Checkbutton(control_frame, text='Overwrite existing saves',
+                                                   variable=self.overwrite_saves_var)
+        overwrite_saves_checkbox.grid(row=0, column=1)
+
         show_console = ttk.Button(control_frame, text='Show console', command=self.open_console)
-        show_console.grid(row=0, column=1)
+        show_console.grid(row=0, column=2)
 
         start = ttk.Button(control_frame, text='Start install', command=self.start_install)
-        start.grid(row=0, column=2)
+        start.grid(row=0, column=3)
 
         self.status_label = ttk.Label(self, text='Waiting...')
         self.status_label.grid(row=5, column=0, sticky=tk.NSEW)
@@ -346,7 +351,8 @@ class CustomInstallGUI(ttk.Frame):
                                   movable=movable_sed,
                                   cias=cias,
                                   sd=sd_root,
-                                  skip_contents=self.skip_contents_var.get() == 1)
+                                  skip_contents=self.skip_contents_var.get() == 1,
+                                  overwrite_saves=self.overwrite_saves_var.get() == 1)
 
         finished_percent = 0
         max_percentage = 100 * len(cias)
