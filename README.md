@@ -61,6 +61,21 @@ Linux users may need to install a Tk package:
 
 Install the requirements listed in "Summary", then run `ci-gui.py`.
 
+## Development
+
+### Building Windows standalone
+
+(still in development)
+
+A [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) is recommended to isolate the packages from system directories. The build script `make-standalone.bat` assumes that the dependencies are in PATH.
+
+Install the dependencies, plus cx-Freeze. In a virtual environment, the specific Python version doesn't need to be requested.
+```batch
+pip install cx-freeze -r requirements-win32.txt
+```
+
+Run `make-standalone.bat`. This will run cxfreeze and make a standalone version in `dist-standlone`, and copy `TaskbarLib.tlb` and `save3ds_fuse.exe` to it.
+
 ## License/Credits
 [save3ds by wwylele](https://github.com/wwylele/save3ds) is used to interact with the Title Database (details in `bin/README`).
 
