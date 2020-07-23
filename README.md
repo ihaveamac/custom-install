@@ -77,6 +77,8 @@ Install the dependencies, plus cx-Freeze. In a virtual environment, the specific
 pip install cx-freeze -r requirements-win32.txt
 ```
 
+Copy `custom-install-finalize.3dsx` to the project root, this will be copied to the build directory and included in the final archive.
+
 Run `make-standalone.bat`. This will run cxfreeze and make a standalone version at `dist\custom-install-standalone.zip`
 
 ## License/Credits
