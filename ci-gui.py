@@ -309,6 +309,9 @@ class CustomInstallGUI(ttk.Frame):
     def show_error(self, message):
         mb.showerror('Error', message, parent=self.parent)
 
+    def ask_warning(self, message):
+        return mb.askokcancel('Warning', message, parent=self.parent)
+
     def show_info(self, message):
         mb.showinfo('Info', message, parent=self.parent)
 
@@ -332,12 +335,14 @@ class CustomInstallGUI(ttk.Frame):
         if not boot9:
             self.show_error('boot9 is not specified.')
             return
-        if not seeddb:
-            self.show_error('seeddb is not specified.')
-            return
         if not movable_sed:
             self.show_error('movable.sed is not specified.')
             return
+
+        if not seeddb:
+            if not self.ask_warning('seeddb was not specified. Titles that require it will fail to install.\n'
+                                    'Continue?'):
+                return
 
         self.disable_buttons()
         self.log('Starting install...')
