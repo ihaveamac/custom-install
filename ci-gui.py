@@ -343,6 +343,9 @@ class CustomInstallGUI(ttk.Frame):
         self.log('Starting install...')
 
         cias = self.cia_listbox.get(0, tk.END)
+        if not len(cias):
+            self.show_error('There are no titles added to install.')
+            return
 
         installer = CustomInstall(boot9=boot9,
                                   seeddb=seeddb,
