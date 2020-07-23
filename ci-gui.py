@@ -393,11 +393,16 @@ class CustomInstallGUI(ttk.Frame):
 
         def install():
             try:
-                result = installer.start(continue_on_fail=False)
+                result, copied_3dsx = installer.start(continue_on_fail=False)
                 if result is True:
                     self.log('Done!')
-                    self.show_info('To finish the install, run custom-install-finalize on the console.\n'
-                                   'This will install a ticket and seed if required.')
+                    if copied_3dsx:
+                        self.show_info('custom-install-finalize has been copied to the SD card.\n'
+                                       'To finish the install, run this on the console through the homebrew launcher.\n'
+                                       'This will install a ticket and seed if required.')
+                    else:
+                        self.show_info('To finish the install, run custom-install-finalize on the console.\n'
+                                       'This will install a ticket and seed if required.')
                 elif result is False:
                     self.show_error('An error occurred when trying to run save3ds_fuse.')
                     self.open_console()
