@@ -77,7 +77,7 @@ Install the dependencies, plus cx-Freeze. In a virtual environment, the specific
 pip install cx-freeze -r requirements-win32.txt
 ```
 
-Run `make-standalone.bat`. This will run cxfreeze and make a standalone version in `dist-standlone`, and copy `TaskbarLib.tlb` and `save3ds_fuse.exe` to it.
+Run `make-standalone.bat`. This will run cxfreeze and make a standalone version at `dist\custom-install-standalone.zip`
 
 ## License/Credits
 [save3ds by wwylele](https://github.com/wwylele/save3ds) is used to interact with the Title Database (details in `bin/README`).
