@@ -6,4 +6,6 @@ copy TaskbarLib.tlb build\custom-install-standalone
 copy bin\win32\save3ds_fuse.exe build\custom-install-standalone\bin
 copy bin\README build\custom-install-standalone\bin
 copy custom-install-finalize.3dsx build\custom-install-standalone
+copy extras\windows-quickstart.txt build\custom-install-standalone
+copy LICENSE.md extras\windows-quickstart.txt
 python -m zipfile -c dist\custom-install-standalone.zip build\custom-install-standalone

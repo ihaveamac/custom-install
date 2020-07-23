@@ -1,0 +1,7 @@
+Run ci-gui to bring up the custom-install gui.
+Select your SD card root, boot9, seeddb, and movable.sed files.
+In some cases these will be automatically selected for you.
+
+Add the CIA files and click "Start install".
+
+Once it's finished, start up the homebrew launcher and run custom-install-finalize to finish the process.

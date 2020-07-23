@@ -4,6 +4,14 @@
 Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
 
 ## Summary
+
+### Windows standalone
+
+1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
+2. Download the [latest releases](https://github.com/ihaveamac/custom-install/releases).
+3. Extract and run ci-gui. Read `windows-quickstart.txt`.
+
+### With installed Python
 Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! Python is installed with the `py` launcher by default.
 
 1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
@@ -65,8 +73,6 @@ Install the requirements listed in "Summary", then run `ci-gui.py`.
 ## Development
 
 ### Building Windows standalone
-
-(still in development)
 
 Using a 32-bit version of Python is recommended to build a version to be distributed.
 
