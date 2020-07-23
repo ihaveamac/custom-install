@@ -1,4 +1,5 @@
 mkdir build
+mkdir dist
 cxfreeze ci-gui.py --target-dir=build\custom-install-standalone --base-name=Win32GUI
 mkdir build\custom-install-standalone\bin
 copy TaskbarLib.tlb build\custom-install-standalone
