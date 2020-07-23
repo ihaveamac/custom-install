@@ -10,6 +10,7 @@ from os.path import dirname, join, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
+from shutil import copyfile
 import sys
 from tempfile import TemporaryDirectory
 from traceback import format_exception
@@ -30,7 +31,12 @@ from pyctr.util import roundup
 is_windows = sys.platform == 'win32'
 
 # used to run the save3ds_fuse binary next to the script
-script_dir: str = dirname(__file__)
+frozen = getattr(sys, 'frozen', False)
+script_dir: str
+if frozen:
+    script_dir = dirname(sys.executable)
+else:
+    script_dir = dirname(__file__)
 
 # missing contents are replaced with 0xFFFFFFFF in the cmd file
 CMD_MISSING = b'\xff\xff\xff\xff'
@@ -166,16 +172,15 @@ class CustomInstall:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
     
     def start(self, continue_on_fail=True):
-        frozen = getattr(sys, 'frozen', False)
         if frozen:
-            save3ds_fuse_path = join(dirname(sys.executable), 'bin', 'save3ds_fuse')
+            save3ds_fuse_path = join(script_dir, 'bin', 'save3ds_fuse')
         else:
             save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
         if is_windows:
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
             self.log("Couldn't find " + save3ds_fuse_path, 2)
-            return
+            return None, False
 
         crypto = self.crypto
         # TODO: Move a lot of these into their own methods
@@ -209,7 +214,7 @@ class CustomInstall:
                 if continue_on_fail:
                     continue
                 else:
-                    return
+                    return None, False
 
             self.event.on_cia_start(idx)
 
@@ -451,16 +456,28 @@ class CustomInstall:
                 if out.returncode:
                     for l in out.stdout.split('\n'):
                         self.log(l)
-                    return False
+                    return False, False
+
+            finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
+            hb_dir = join(self.sd, '3ds')
+            finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
+            copied = False
+            if isfile(finalize_3dsx_orig_path):
+                self.log('Copying finalize program to ' + finalize_3dsx_path)
+                makedirs(hb_dir, exist_ok=True)
+                copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
+                copied = True
 
             self.log('FINAL STEP:')
             self.log('Run custom-install-finalize through homebrew launcher.')
             self.log('This will install a ticket and seed if required.')
-            return True
+            if copied_3dsx:
+                self.log('custom-install-finalize has been copied to the SD card.')
+            return True, copied
 
         else:
             self.log('Did not install any titles.', 2)
-            return None
+            return None, False
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
@@ -541,7 +558,7 @@ if __name__ == "__main__":
     installer.event.update_percentage += percent_handle
     installer.event.on_error += error
 
-    result = installer.start(continue_on_fail=False)
+    result, copied_3dsx = installer.start(continue_on_fail=False)
     if result is False:
         # save3ds_fuse failed
         installer.log('NOTE: Once save3ds_fuse is fixed, run the same command again with --skip-contents')
