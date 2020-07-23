@@ -118,11 +118,6 @@ class CustomInstallGUI(ttk.Frame):
 
             self.after(100, setup_tab)
 
-        # self.sd_path = None
-        # self.b9_path = default_b9_path
-        # self.seeddb_path = default_seeddb_path
-        # self.movable_sed_path = default_movable_sed_path
-
         # ---------------------------------------------------------------- #
         # create file pickers for base files
         file_pickers = ttk.Frame(self)
@@ -144,11 +139,6 @@ class CustomInstallGUI(ttk.Frame):
                     box = self.file_picker_textboxes['movable.sed']
                     box.delete('1.0', tk.END)
                     box.insert(tk.END, sd_msed_path)
-
-        # sd_button = ttk.Button(file_pickers, text='Select SD root', command=sd_callback)
-        # sd_button.grid(row=0, column=0, sticky=tk.NSEW)
-        # sd_selected = ttk.Label(file_pickers, text='')
-        # sd_selected.grid(row=0, column=1, sticky=tk.NSEW)
 
         sd_type_label = ttk.Label(file_pickers, text='SD root')
         sd_type_label.grid(row=0, column=0)
