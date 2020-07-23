@@ -67,6 +67,8 @@ Install the requirements listed in "Summary", then run `ci-gui.py`.
 
 (still in development)
 
+Using a 32-bit version of Python is recommended to build a version to be distributed.
+
 A [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) is recommended to isolate the packages from system directories. The build script `make-standalone.bat` assumes that the dependencies are in PATH.
 
 Install the dependencies, plus cx-Freeze. In a virtual environment, the specific Python version doesn't need to be requested.
