@@ -471,7 +471,7 @@ class CustomInstall:
             self.log('FINAL STEP:')
             self.log('Run custom-install-finalize through homebrew launcher.')
             self.log('This will install a ticket and seed if required.')
-            if copied_3dsx:
+            if copied:
                 self.log('custom-install-finalize has been copied to the SD card.')
             return True, copied
 
