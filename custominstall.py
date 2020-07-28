@@ -19,7 +19,7 @@ import subprocess
 
 if TYPE_CHECKING:
     from os import PathLike
-    from typing import Union
+    from typing import List, Union
 
 from events import Events
 
@@ -141,10 +141,7 @@ def save_cifinish(path: 'Union[PathLike, bytes, str]', data: dict):
 
 
 class CustomInstall:
-
-    cia: CIAReader
-
-    def __init__(self, boot9, seeddb, movable, cias, sd, cifinish_out=None,
+    def __init__(self, boot9, seeddb, movable, sd, cifinish_out=None,
                  overwrite_saves=False, skip_contents=False):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
@@ -152,7 +149,7 @@ class CustomInstall:
         self.crypto = CryptoEngine(boot9=boot9)
         self.crypto.setup_sd_key_from_file(movable)
         self.seeddb = seeddb
-        self.cias = cias
+        self.readers = []
         self.sd = sd
         self.skip_contents = skip_contents
         self.overwrite_saves = overwrite_saves
@@ -170,8 +167,15 @@ class CustomInstall:
             total_read = size - left
             if fire_event:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
+
+    def prepare_titles(self, paths: 'List[PathLike]'):
+        readers = []
+        for path in paths:
+            self.log(f'Reading {path}')
+            readers.append(CIAReader(path))
+        self.readers = readers
     
-    def start(self, continue_on_fail=True):
+    def start(self):
         if frozen:
             save3ds_fuse_path = join(script_dir, 'bin', 'save3ds_fuse')
         else:
@@ -204,22 +208,10 @@ class CustomInstall:
 
         # Now loop through all provided cia files
         
-        for idx, c in enumerate(self.cias):
-            self.log('Reading ' + c)
-
-            try:
-                cia = CIAReader(c)
-            except Exception as e:
-                self.event.on_error(sys.exc_info())
-                if continue_on_fail:
-                    continue
-                else:
-                    return None, False
+        for idx, cia in enumerate(self.readers):
 
             self.event.on_cia_start(idx)
 
-            self.cia = cia
-            
             tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
 
             try:
@@ -536,7 +528,6 @@ if __name__ == "__main__":
 
     installer = CustomInstall(boot9=args.boot9,
                               seeddb=args.seeddb,
-                              cias=args.cia,
                               movable=args.movable,
                               sd=args.sd,
                               overwrite_saves=args.overwrite_saves,
@@ -558,7 +549,9 @@ if __name__ == "__main__":
     installer.event.update_percentage += percent_handle
     installer.event.on_error += error
 
-    result, copied_3dsx = installer.start(continue_on_fail=False)
+    installer.prepare_titles(args.cia)
+
+    result, copied_3dsx = installer.start()
     if result is False:
         # save3ds_fuse failed
         installer.log('NOTE: Once save3ds_fuse is fixed, run the same command again with --skip-contents')

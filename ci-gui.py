@@ -355,7 +355,6 @@ class CustomInstallGUI(ttk.Frame):
         installer = CustomInstall(boot9=boot9,
                                   seeddb=seeddb,
                                   movable=movable_sed,
-                                  cias=cias,
                                   sd=sd_root,
                                   skip_contents=self.skip_contents_var.get() == 1,
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
@@ -393,12 +392,21 @@ class CustomInstallGUI(ttk.Frame):
         installer.event.on_error += ci_on_error
         installer.event.on_cia_start += ci_on_cia_start
 
+        try:
+            installer.prepare_titles(cias)
+        except Exception as e:
+            for line in format_exception(*exc_info()):
+                for line2 in line.split('\n')[:-1]:
+                    installer.log(line2)
+            self.show_error('An error occurred when trying to read the files.')
+            self.open_console()
+
         if taskbar:
             taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
 
         def install():
             try:
-                result, copied_3dsx = installer.start(continue_on_fail=False)
+                result, copied_3dsx = installer.start()
                 if result is True:
                     self.log('Done!')
                     if copied_3dsx:
