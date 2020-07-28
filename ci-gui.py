@@ -191,6 +191,18 @@ class CustomInstallGUI(ttk.Frame):
         add_cias = ttk.Button(listbox_buttons, text='Add CIAs', command=add_cias_callback)
         add_cias.grid(row=0, column=0)
 
+        def add_cias_callback():
+            d = fd.askdirectory(parent=parent, title='Select folder containing title contents in CDN format',
+                                initialdir=file_parent)
+            if d:
+                if isfile(join(d, 'tmd')):
+                    self.add_cia(d)
+                else:
+                    self.show_error('tmd file not found in the CDN directory:\n' + d)
+
+        add_cias = ttk.Button(listbox_buttons, text='Add CDN title folder', command=add_cias_callback)
+        add_cias.grid(row=0, column=1)
+
         def add_dirs_callback():
             d = fd.askdirectory(parent=parent, title='Select folder containing CIA files', initialdir=file_parent)
             if d:
@@ -199,7 +211,7 @@ class CustomInstallGUI(ttk.Frame):
                         self.add_cia(f.path)
 
         add_dirs = ttk.Button(listbox_buttons, text='Add folder', command=add_dirs_callback)
-        add_dirs.grid(row=0, column=1)
+        add_dirs.grid(row=0, column=2)
 
         def remove_selected_callback():
             indexes = self.cia_listbox.curselection()
@@ -209,7 +221,7 @@ class CustomInstallGUI(ttk.Frame):
                 n += 1
 
         remove_selected = ttk.Button(listbox_buttons, text='Remove selected', command=remove_selected_callback)
-        remove_selected.grid(row=0, column=2)
+        remove_selected.grid(row=0, column=3)
 
         # ---------------------------------------------------------------- #
         # create listbox
