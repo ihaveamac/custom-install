@@ -6,7 +6,7 @@
 
 from argparse import ArgumentParser
 from os import makedirs, scandir
-from os.path import dirname, join, isfile
+from os.path import dirname, join, isdir, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 from events import Events
 
 from pyctr.crypto import CryptoEngine, Keyslot, load_seeddb, get_seed
-from pyctr.type.cia import CIAReader, CIASection
+from pyctr.type.cdn import CDNReader
+from pyctr.type.cia import CIAReader, CIAError
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
 
@@ -149,7 +150,7 @@ class CustomInstall:
         self.crypto = CryptoEngine(boot9=boot9)
         self.crypto.setup_sd_key_from_file(movable)
         self.seeddb = seeddb
-        self.readers = []
+        self.readers: 'List[Union[CDNReader, CIAReader]]' = []
         self.sd = sd
         self.skip_contents = skip_contents
         self.overwrite_saves = overwrite_saves
@@ -172,9 +173,20 @@ class CustomInstall:
         readers = []
         for path in paths:
             self.log(f'Reading {path}')
-            readers.append(CIAReader(path))
+            if isdir(path):
+                # try the default tmd file
+                reader = CDNReader(join(path, 'tmd'))
+            else:
+                try:
+                    reader = CIAReader(path)
+                except CIAError:
+                    # if there was an error with parsing the CIA header,
+                    # the file would be tried in CDNReader next (assuming it's a tmd)
+                    # any other error should be propagated to the caller
+                    reader = CDNReader(path)
+            readers.append(reader)
         self.readers = readers
-    
+
     def start(self):
         if frozen:
             save3ds_fuse_path = join(script_dir, 'bin', 'save3ds_fuse')
