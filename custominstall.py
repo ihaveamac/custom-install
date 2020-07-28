@@ -12,6 +12,7 @@ from hashlib import sha256
 from locale import getpreferredencoding
 from shutil import copyfile
 import sys
+from sys import platform, executable
 from tempfile import TemporaryDirectory
 from traceback import format_exception
 from typing import BinaryIO, TYPE_CHECKING
@@ -29,13 +30,16 @@ from pyctr.type.cia import CIAReader, CIAError
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
 
-is_windows = sys.platform == 'win32'
+is_windows = platform == 'win32'
+
+if platform == 'msys':
+    platform = 'win32'
 
 # used to run the save3ds_fuse binary next to the script
 frozen = getattr(sys, 'frozen', False)
 script_dir: str
 if frozen:
-    script_dir = dirname(sys.executable)
+    script_dir = dirname(executable)
 else:
     script_dir = dirname(__file__)
 
@@ -191,7 +195,7 @@ class CustomInstall:
         if frozen:
             save3ds_fuse_path = join(script_dir, 'bin', 'save3ds_fuse')
         else:
-            save3ds_fuse_path = join(script_dir, 'bin', sys.platform, 'save3ds_fuse')
+            save3ds_fuse_path = join(script_dir, 'bin', platform, 'save3ds_fuse')
         if is_windows:
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
