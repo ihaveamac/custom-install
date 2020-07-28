@@ -274,10 +274,9 @@ class CustomInstall:
                 # write the tmd
                 enc_path = content_root_cmd + '/' + tmd_filename
                 self.log(f'Writing {enc_path}...')
-                with cia.open_raw_section(CIASection.TitleMetadata) as s:
-                    with open(join(content_root, tmd_filename), 'wb') as o:
-                        self.copy_with_progress(s, o, cia.sections[CIASection.TitleMetadata].size, enc_path,
-                                                fire_event=False)
+                with open(join(content_root, tmd_filename), 'wb') as o:
+                    with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(enc_path)) as e:
+                        e.write(bytes(cia.tmd))
 
                 # write each content
                 for co in cia.content_info:
