@@ -37,7 +37,7 @@ if is_windows:
     except ModuleNotFoundError:
         pass
 
-file_parent = dirname(__file__)
+file_parent = dirname(abspath(__file__))
 
 # automatically load boot9 if it's in the current directory
 b9_paths.insert(0, join(file_parent, 'boot9.bin'))
