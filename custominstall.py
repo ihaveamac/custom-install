@@ -10,6 +10,7 @@ from os.path import dirname, join, isdir, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
+from pprint import pformat
 from shutil import copyfile
 import sys
 from sys import platform, executable
@@ -446,6 +447,9 @@ class CustomInstall:
                 if out.returncode:
                     for l in out.stdout.split('\n'):
                         self.log(l)
+                    self.log('Command line:')
+                    for l in pformat(out.args).split('\n'):
+                        self.log(l)
                     return False
 
                 for title_id, entry in title_info_entries.items():
@@ -462,6 +466,9 @@ class CustomInstall:
                                      **extra_kwargs)
                 if out.returncode:
                     for l in out.stdout.split('\n'):
+                        self.log(l)
+                    self.log('Command line:')
+                    for l in pformat(out.args).split('\n'):
                         self.log(l)
                     return False, False
 
