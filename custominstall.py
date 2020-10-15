@@ -450,7 +450,7 @@ class CustomInstall:
                     self.log('Command line:')
                     for l in pformat(out.args).split('\n'):
                         self.log(l)
-                    return False
+                    return False, False
 
                 for title_id, entry in title_info_entries.items():
                     # write the title info entry to the temp directory
