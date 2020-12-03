@@ -219,7 +219,6 @@ class CustomInstall:
             cifinish_path = join(self.sd, 'cifinish.bin')
 
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
-            self.log(tempdir)
             # set up the common arguments for the two times we call save3ds_fuse
             save3ds_fuse_common_args = [
                 save3ds_fuse_path,
