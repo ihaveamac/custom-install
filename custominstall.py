@@ -219,7 +219,12 @@ class CustomInstall:
             cifinish_path = join(self.sd, 'cifinish.bin')
         sd_path = join(sd_path, id1s[0])
         title_info_entries = {}
-        cifinish_data = load_cifinish(cifinish_path)
+        try:
+            cifinish_data = load_cifinish(cifinish_path)
+        except InvalidCIFinishError as e:
+            self.log(f'{cifinish_path} is invalid, not loading.')
+            self.log(f'{type(e).__qualname__}: {e}')
+            cifinish_data = {}
 
         load_seeddb(self.seeddb)
 
