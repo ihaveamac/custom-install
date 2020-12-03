@@ -419,20 +419,21 @@ class CustomInstallGUI(ttk.Frame):
         def install():
             try:
                 result, copied_3dsx = installer.start()
+                print(result)
                 if result:
                     self.log('Done!')
-                    if result['installed']:
-                        if copied_3dsx:
-                            message = ('custom-install-finalize has been copied to the SD card.\n'
-                                       'To finish the install, run this on the console through the homebrew launcher.\n'
-                                       'This will install a ticket and seed if required.')
-                        else:
-                            message = ('To finish the install, run custom-install-finalize on the console.\n'
-                                       'This will install a ticket and seed if required.')
+                    if result['failed']:
+                        message = ('Some titles failed to install. Others may be and can be finished with '
+                                   'custom-install-finalize.')
                     else:
-                        if result['failed']:
-                            message = ('Some titles failed to install. Others may be and can be finished with '
-                                       'custom-install-finalize.')
+                        if result['installed']:
+                            if copied_3dsx:
+                                message = ('custom-install-finalize has been copied to the SD card.\n'
+                                           'To finish the install, run this on the console through the homebrew launcher.\n'
+                                           'This will install a ticket and seed if required.')
+                            else:
+                                message = ('To finish the install, run custom-install-finalize on the console.\n'
+                                           'This will install a ticket and seed if required.')
                         else:
                             message = 'Nothing was installed.'
 
