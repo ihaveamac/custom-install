@@ -165,14 +165,18 @@ class CustomInstall:
     def copy_with_progress(self, src: BinaryIO, dst: BinaryIO, size: int, path: str, fire_event: bool = True):
         left = size
         cipher = self.crypto.create_ctr_cipher(Keyslot.SD, self.crypto.sd_path_to_iv(path))
+        hasher = sha256()
         while left > 0:
             to_read = min(READ_SIZE, left)
-            data = cipher.encrypt(src.read(READ_SIZE))
-            dst.write(data)
+            data = src.read(READ_SIZE)
+            hasher.update(data)
+            dst.write(cipher.encrypt(data))
             left -= to_read
             total_read = size - left
             if fire_event:
                 self.event.update_percentage((total_read / size) * 100, total_read / 1048576, size / 1048576)
+
+        return hasher.digest()
 
     def prepare_titles(self, paths: 'List[PathLike]'):
         readers = []
@@ -341,6 +345,8 @@ class CustomInstall:
                         with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(tmd_enc_path)) as e:
                             e.write(bytes(cia.tmd))
 
+                    # in case the contents are corrupted
+                    do_continue = False
                     # write each content
                     for co in cia.content_info:
                         content_filename = co.id + '.app'
@@ -353,7 +359,16 @@ class CustomInstall:
                             content_out_path = join(temp_content_root, content_filename)
                         self.log(f'Writing {content_enc_path}...')
                         with cia.open_raw_section(co.cindex) as s, open(content_out_path, 'wb') as o:
-                            self.copy_with_progress(s, o, co.size, content_enc_path)
+                            result_hash = self.copy_with_progress(s, o, co.size, content_enc_path)
+                            if result_hash != co.hash:
+                                self.log(f'WARNING: Hash does not match for {content_enc_path}!')
+                                install_state['failed'].append(display_title)
+                                rename(temp_title_root, f'{temp_title_root}-corrupted-{randint(0, 0xFFFFFFFF):08x}')
+                                do_continue = True
+                                break
+
+                    if do_continue:
+                        continue
 
                     # generate a blank save
                     if cia.tmd.save_size:
@@ -493,11 +508,11 @@ class CustomInstall:
 
                 install_state['installed'].append(display_title)
 
+            copied = False
             if install_state['installed']:
                 finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
                 hb_dir = join(self.sd, '3ds')
                 finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
-                copied = False
                 if isfile(finalize_3dsx_orig_path):
                     self.log('Copying finalize program to ' + finalize_3dsx_path)
                     makedirs(hb_dir, exist_ok=True)
