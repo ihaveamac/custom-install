@@ -247,10 +247,9 @@ class CustomInstall:
                 self.log('Command line:')
                 for l in pformat(out.args).split('\n'):
                     self.log(l)
-                return False, False
+                return None, False
 
             sd_path = join(sd_path, id1s[0])
-            title_info_entries = {}
             try:
                 cifinish_data = load_cifinish(cifinish_path)
             except InvalidCIFinishError as e:
@@ -260,18 +259,9 @@ class CustomInstall:
 
             load_seeddb(self.seeddb)
 
-            finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
-            hb_dir = join(self.sd, '3ds')
-            finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
-            copied = False
-            if isfile(finalize_3dsx_orig_path):
-                self.log('Copying finalize program to ' + finalize_3dsx_path)
-                makedirs(hb_dir, exist_ok=True)
-                copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
-                copied = True
+            install_state = {'installed': [], 'failed': []}
 
             # Now loop through all provided cia files
-
             for idx, cia in enumerate(self.readers):
 
                 self.event.on_cia_start(idx)
@@ -282,9 +272,10 @@ class CustomInstall:
                 tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
 
                 try:
-                    self.log(f'Installing {cia.contents[0].exefs.icon.get_app_title().short_desc}...')
+                    display_title = f'{cia.contents[0].exefs.icon.get_app_title().short_desc} - {cia.tmd.title_id}'
                 except:
-                    self.log('Installing...')
+                    display_title = cia.tmd.title_id
+                self.log(f'Installing {display_title}...')
 
                 sizes = [1] * 5
 
@@ -498,14 +489,28 @@ class CustomInstall:
                     self.log('Command line:')
                     for l in pformat(out.args).split('\n'):
                         self.log(l)
-                    return False, False
+                    install_state['failed'].append(display_title)
 
-            self.log('FINAL STEP:')
-            self.log('Run custom-install-finalize through homebrew launcher.')
-            self.log('This will install a ticket and seed if required.')
-            if copied:
-                self.log('custom-install-finalize has been copied to the SD card.')
-            return True, copied
+                install_state['installed'].append(display_title)
+
+            if install_state['installed']:
+                finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
+                hb_dir = join(self.sd, '3ds')
+                finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
+                copied = False
+                if isfile(finalize_3dsx_orig_path):
+                    self.log('Copying finalize program to ' + finalize_3dsx_path)
+                    makedirs(hb_dir, exist_ok=True)
+                    copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
+                    copied = True
+
+                self.log('FINAL STEP:')
+                self.log('Run custom-install-finalize through homebrew launcher.')
+                self.log('This will install a ticket and seed if required.')
+                if copied:
+                    self.log('custom-install-finalize has been copied to the SD card.')
+
+            return install_state, copied
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
