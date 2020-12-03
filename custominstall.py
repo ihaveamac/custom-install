@@ -217,245 +217,247 @@ class CustomInstall:
             cifinish_path = self.cifinish_out
         else:
             cifinish_path = join(self.sd, 'cifinish.bin')
-        sd_path = join(sd_path, id1s[0])
-        title_info_entries = {}
-        try:
-            cifinish_data = load_cifinish(cifinish_path)
-        except InvalidCIFinishError as e:
-            self.log(f'{cifinish_path} is invalid, not loading.')
-            self.log(f'{type(e).__qualname__}: {e}')
-            cifinish_data = {}
 
-        load_seeddb(self.seeddb)
-
-        # Now loop through all provided cia files
-        
-        for idx, cia in enumerate(self.readers):
-
-            self.event.on_cia_start(idx)
-
-            tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
-
-            try:
-                self.log(f'Installing {cia.contents[0].exefs.icon.get_app_title().short_desc}...')
-            except:
-                self.log('Installing...')
-            
-            sizes = [1] * 5
-
-            if cia.tmd.save_size:
-                # one for the data directory, one for the 00000001.sav file
-                sizes.extend((1, cia.tmd.save_size))
-            
-            for record in cia.content_info:
-                sizes.append(record.size)
-            
-            # this calculates the size to put in the Title Info Entry
-            title_size = sum(roundup(x, TITLE_ALIGN_SIZE) for x in sizes)
-
-            # checks if this is dlc, which has some differences
-            is_dlc = tid_parts[0] == '0004008c'
-
-            # this checks if it has a manual (index 1) and is not DLC
-            has_manual = (not is_dlc) and (1 in cia.contents)
-
-            # this gets the extdata id from the extheader, stored in the storage info area
-            try:
-                with cia.contents[0].open_raw_section(NCCHSection.ExtendedHeader) as e:
-                    e.seek(0x200 + 0x30)
-                    extdata_id = e.read(8)
-            except KeyError:
-                # not an executable title
-                extdata_id = b'\0' * 8
-
-            # cmd content id, starts with 1 for non-dlc contents
-            cmd_id = len(cia.content_info) if is_dlc else 1
-            cmd_filename = f'{cmd_id:08x}.cmd'
-
-            # get the title root where all the contents will be
-            title_root = join(sd_path, 'title', *tid_parts)
-            content_root = join(title_root, 'content')
-            # generate the path used for the IV
-            title_root_cmd = f'/title/{"/".join(tid_parts)}'
-            content_root_cmd = title_root_cmd + '/content'
-
-            if not self.skip_contents:
-                makedirs(join(content_root, 'cmd'), exist_ok=True)
-                if cia.tmd.save_size:
-                    makedirs(join(title_root, 'data'), exist_ok=True)
-                if is_dlc:
-                    # create the separate directories for every 256 contents
-                    for x in range(((len(cia.content_info) - 1) // 256) + 1):
-                        makedirs(join(content_root, f'{x:08x}'), exist_ok=True)
-
-                # maybe this will be changed in the future
-                tmd_id = 0
-
-                tmd_filename = f'{tmd_id:08x}.tmd'
-
-                # write the tmd
-                enc_path = content_root_cmd + '/' + tmd_filename
-                self.log(f'Writing {enc_path}...')
-                with open(join(content_root, tmd_filename), 'wb') as o:
-                    with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(enc_path)) as e:
-                        e.write(bytes(cia.tmd))
-
-                # write each content
-                for co in cia.content_info:
-                    content_filename = co.id + '.app'
-                    if is_dlc:
-                        dir_index = format((co.cindex // 256), '08x')
-                        enc_path = content_root_cmd + f'/{dir_index}/{content_filename}'
-                        out_path = join(content_root, dir_index, content_filename)
-                    else:
-                        enc_path = content_root_cmd + '/' + content_filename
-                        out_path = join(content_root, content_filename)
-                    self.log(f'Writing {enc_path}...')
-                    with cia.open_raw_section(co.cindex) as s, open(out_path, 'wb') as o:
-                        self.copy_with_progress(s, o, co.size, enc_path)
-
-                # generate a blank save
-                if cia.tmd.save_size:
-                    enc_path = title_root_cmd + '/data/00000001.sav'
-                    out_path = join(title_root, 'data', '00000001.sav')
-                    if self.overwrite_saves or not isfile(out_path):
-                        cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
-                        # in a new save, the first 0x20 are all 00s. the rest can be random
-                        data = cipher.encrypt(b'\0' * 0x20)
-                        self.log(f'Generating blank save at {enc_path}...')
-                        with open(out_path, 'wb') as o:
-                            o.write(data)
-                            o.write(b'\0' * (cia.tmd.save_size - 0x20))
-                    else:
-                        self.log(f'Not overwriting existing save at {enc_path}')
-
-                # generate and write cmd
-                enc_path = content_root_cmd + '/cmd/' + cmd_filename
-                out_path = join(content_root, 'cmd', cmd_filename)
-                self.log(f'Generating {enc_path}')
-                highest_index = 0
-                content_ids = {}
-
-                for record in cia.content_info:
-                    highest_index = record.cindex
-                    with cia.open_raw_section(record.cindex) as s:
-                        s.seek(0x100)
-                        cmac_data = s.read(0x100)
-
-                    id_bytes = bytes.fromhex(record.id)[::-1]
-                    cmac_data += record.cindex.to_bytes(4, 'little') + id_bytes
-
-                    cmac_ncch = crypto.create_cmac_object(Keyslot.CMACSDNAND)
-                    cmac_ncch.update(sha256(cmac_data).digest())
-                    content_ids[record.cindex] = (id_bytes, cmac_ncch.digest())
-
-                # add content IDs up to the last one
-                ids_by_index = [CMD_MISSING] * (highest_index + 1)
-                installed_ids = []
-                cmacs = []
-                for x in range(len(ids_by_index)):
-                    try:
-                        info = content_ids[x]
-                    except KeyError:
-                        # "MISSING CONTENT!"
-                        # The 3DS does generate a cmac for missing contents, but I don't know how it works.
-                        # It doesn't matter anyway, the title seems to be fully functional.
-                        cmacs.append(bytes.fromhex('4D495353494E4720434F4E54454E5421'))
-                    else:
-                        ids_by_index[x] = info[0]
-                        cmacs.append(info[1])
-                        installed_ids.append(info[0])
-                installed_ids.sort(key=lambda x: int.from_bytes(x, 'little'))
-
-                final = (cmd_id.to_bytes(4, 'little')
-                         + len(ids_by_index).to_bytes(4, 'little')
-                         + len(installed_ids).to_bytes(4, 'little')
-                         + (1).to_bytes(4, 'little'))
-                cmac_cmd_header = crypto.create_cmac_object(Keyslot.CMACSDNAND)
-                cmac_cmd_header.update(final)
-                final += cmac_cmd_header.digest()
-
-                final += b''.join(ids_by_index)
-                final += b''.join(installed_ids)
-                final += b''.join(cmacs)
-
-                cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
-                self.log(f'Writing {enc_path}')
-                with open(out_path, 'wb') as o:
-                    o.write(cipher.encrypt(final))
-
-            # this starts building the title info entry
-            title_info_entry_data = [
-                # title size
-                title_size.to_bytes(8, 'little'),
-                # title type, seems to usually be 0x40
-                0x40.to_bytes(4, 'little'),
-                # title version
-                int(cia.tmd.title_version).to_bytes(2, 'little'),
-                # ncch version
-                cia.contents[0].version.to_bytes(2, 'little'),
-                # flags_0, only checking if there is a manual
-                (1 if has_manual else 0).to_bytes(4, 'little'),
-                # tmd content id, always starting with 0
-                (0).to_bytes(4, 'little'),
-                # cmd content id
-                cmd_id.to_bytes(4, 'little'),
-                # flags_1, only checking save data
-                (1 if cia.tmd.save_size else 0).to_bytes(4, 'little'),
-                # extdataid low
-                extdata_id[0:4],
-                # reserved
-                b'\0' * 4,
-                # flags_2, only using a common value
-                0x100000000.to_bytes(8, 'little'),
-                # product code
-                cia.contents[0].product_code.encode('ascii').ljust(0x10, b'\0'),
-                # reserved
-                b'\0' * 0x10,
-                # unknown
-                randint(0, 0xFFFFFFFF).to_bytes(4, 'little'),
-                # reserved
-                b'\0' * 0x2c
+        with TemporaryDirectory(suffix='-custom-install') as tempdir:
+            # set up the common arguments for the two times we call save3ds_fuse
+            save3ds_fuse_common_args = [
+                save3ds_fuse_path,
+                '-b', crypto.b9_path,
+                '-m', self.movable,
+                '--sd', self.sd,
+                '--db', 'sdtitle',
+                tempdir
             ]
 
-            title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
+            extra_kwargs = {}
+            if is_windows:
+                # hide console window
+                extra_kwargs['creationflags'] = 0x08000000  # CREATE_NO_WINDOW
 
-            cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
+            # extract the title database to add our own entry to
+            self.log('Extracting Title Database...')
+            out = subprocess.run(save3ds_fuse_common_args + ['-x'],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT,
+                                 encoding=getpreferredencoding(),
+                                 **extra_kwargs)
+            if out.returncode:
+                for l in out.stdout.split('\n'):
+                    self.log(l)
+                self.log('Command line:')
+                for l in pformat(out.args).split('\n'):
+                    self.log(l)
+                return False, False
 
-        # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
-        save_cifinish(cifinish_path, cifinish_data)
+            sd_path = join(sd_path, id1s[0])
+            title_info_entries = {}
+            try:
+                cifinish_data = load_cifinish(cifinish_path)
+            except InvalidCIFinishError as e:
+                self.log(f'{cifinish_path} is invalid, not loading.')
+                self.log(f'{type(e).__qualname__}: {e}')
+                cifinish_data = {}
 
-        if title_info_entries:
-            with TemporaryDirectory(suffix='-custom-install') as tempdir:
-                # set up the common arguments for the two times we call save3ds_fuse
-                save3ds_fuse_common_args = [
-                    save3ds_fuse_path,
-                    '-b', crypto.b9_path,
-                    '-m', self.movable,
-                    '--sd', self.sd,
-                    '--db', 'sdtitle',
-                    tempdir
+            load_seeddb(self.seeddb)
+
+            # Now loop through all provided cia files
+
+            for idx, cia in enumerate(self.readers):
+
+                self.event.on_cia_start(idx)
+
+                tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
+
+                try:
+                    self.log(f'Installing {cia.contents[0].exefs.icon.get_app_title().short_desc}...')
+                except:
+                    self.log('Installing...')
+
+                sizes = [1] * 5
+
+                if cia.tmd.save_size:
+                    # one for the data directory, one for the 00000001.sav file
+                    sizes.extend((1, cia.tmd.save_size))
+
+                for record in cia.content_info:
+                    sizes.append(record.size)
+
+                # this calculates the size to put in the Title Info Entry
+                title_size = sum(roundup(x, TITLE_ALIGN_SIZE) for x in sizes)
+
+                # checks if this is dlc, which has some differences
+                is_dlc = tid_parts[0] == '0004008c'
+
+                # this checks if it has a manual (index 1) and is not DLC
+                has_manual = (not is_dlc) and (1 in cia.contents)
+
+                # this gets the extdata id from the extheader, stored in the storage info area
+                try:
+                    with cia.contents[0].open_raw_section(NCCHSection.ExtendedHeader) as e:
+                        e.seek(0x200 + 0x30)
+                        extdata_id = e.read(8)
+                except KeyError:
+                    # not an executable title
+                    extdata_id = b'\0' * 8
+
+                # cmd content id, starts with 1 for non-dlc contents
+                cmd_id = len(cia.content_info) if is_dlc else 1
+                cmd_filename = f'{cmd_id:08x}.cmd'
+
+                # get the title root where all the contents will be
+                title_root = join(sd_path, 'title', *tid_parts)
+                content_root = join(title_root, 'content')
+                # generate the path used for the IV
+                title_root_cmd = f'/title/{"/".join(tid_parts)}'
+                content_root_cmd = title_root_cmd + '/content'
+
+                if not self.skip_contents:
+                    makedirs(join(content_root, 'cmd'), exist_ok=True)
+                    if cia.tmd.save_size:
+                        makedirs(join(title_root, 'data'), exist_ok=True)
+                    if is_dlc:
+                        # create the separate directories for every 256 contents
+                        for x in range(((len(cia.content_info) - 1) // 256) + 1):
+                            makedirs(join(content_root, f'{x:08x}'), exist_ok=True)
+
+                    # maybe this will be changed in the future
+                    tmd_id = 0
+
+                    tmd_filename = f'{tmd_id:08x}.tmd'
+
+                    # write the tmd
+                    enc_path = content_root_cmd + '/' + tmd_filename
+                    self.log(f'Writing {enc_path}...')
+                    with open(join(content_root, tmd_filename), 'wb') as o:
+                        with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(enc_path)) as e:
+                            e.write(bytes(cia.tmd))
+
+                    # write each content
+                    for co in cia.content_info:
+                        content_filename = co.id + '.app'
+                        if is_dlc:
+                            dir_index = format((co.cindex // 256), '08x')
+                            enc_path = content_root_cmd + f'/{dir_index}/{content_filename}'
+                            out_path = join(content_root, dir_index, content_filename)
+                        else:
+                            enc_path = content_root_cmd + '/' + content_filename
+                            out_path = join(content_root, content_filename)
+                        self.log(f'Writing {enc_path}...')
+                        with cia.open_raw_section(co.cindex) as s, open(out_path, 'wb') as o:
+                            self.copy_with_progress(s, o, co.size, enc_path)
+
+                    # generate a blank save
+                    if cia.tmd.save_size:
+                        enc_path = title_root_cmd + '/data/00000001.sav'
+                        out_path = join(title_root, 'data', '00000001.sav')
+                        if self.overwrite_saves or not isfile(out_path):
+                            cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
+                            # in a new save, the first 0x20 are all 00s. the rest can be random
+                            data = cipher.encrypt(b'\0' * 0x20)
+                            self.log(f'Generating blank save at {enc_path}...')
+                            with open(out_path, 'wb') as o:
+                                o.write(data)
+                                o.write(b'\0' * (cia.tmd.save_size - 0x20))
+                        else:
+                            self.log(f'Not overwriting existing save at {enc_path}')
+
+                    # generate and write cmd
+                    enc_path = content_root_cmd + '/cmd/' + cmd_filename
+                    out_path = join(content_root, 'cmd', cmd_filename)
+                    self.log(f'Generating {enc_path}')
+                    highest_index = 0
+                    content_ids = {}
+
+                    for record in cia.content_info:
+                        highest_index = record.cindex
+                        with cia.open_raw_section(record.cindex) as s:
+                            s.seek(0x100)
+                            cmac_data = s.read(0x100)
+
+                        id_bytes = bytes.fromhex(record.id)[::-1]
+                        cmac_data += record.cindex.to_bytes(4, 'little') + id_bytes
+
+                        cmac_ncch = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                        cmac_ncch.update(sha256(cmac_data).digest())
+                        content_ids[record.cindex] = (id_bytes, cmac_ncch.digest())
+
+                    # add content IDs up to the last one
+                    ids_by_index = [CMD_MISSING] * (highest_index + 1)
+                    installed_ids = []
+                    cmacs = []
+                    for x in range(len(ids_by_index)):
+                        try:
+                            info = content_ids[x]
+                        except KeyError:
+                            # "MISSING CONTENT!"
+                            # The 3DS does generate a cmac for missing contents, but I don't know how it works.
+                            # It doesn't matter anyway, the title seems to be fully functional.
+                            cmacs.append(bytes.fromhex('4D495353494E4720434F4E54454E5421'))
+                        else:
+                            ids_by_index[x] = info[0]
+                            cmacs.append(info[1])
+                            installed_ids.append(info[0])
+                    installed_ids.sort(key=lambda x: int.from_bytes(x, 'little'))
+
+                    final = (cmd_id.to_bytes(4, 'little')
+                             + len(ids_by_index).to_bytes(4, 'little')
+                             + len(installed_ids).to_bytes(4, 'little')
+                             + (1).to_bytes(4, 'little'))
+                    cmac_cmd_header = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                    cmac_cmd_header.update(final)
+                    final += cmac_cmd_header.digest()
+
+                    final += b''.join(ids_by_index)
+                    final += b''.join(installed_ids)
+                    final += b''.join(cmacs)
+
+                    cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
+                    self.log(f'Writing {enc_path}')
+                    with open(out_path, 'wb') as o:
+                        o.write(cipher.encrypt(final))
+
+                # this starts building the title info entry
+                title_info_entry_data = [
+                    # title size
+                    title_size.to_bytes(8, 'little'),
+                    # title type, seems to usually be 0x40
+                    0x40.to_bytes(4, 'little'),
+                    # title version
+                    int(cia.tmd.title_version).to_bytes(2, 'little'),
+                    # ncch version
+                    cia.contents[0].version.to_bytes(2, 'little'),
+                    # flags_0, only checking if there is a manual
+                    (1 if has_manual else 0).to_bytes(4, 'little'),
+                    # tmd content id, always starting with 0
+                    (0).to_bytes(4, 'little'),
+                    # cmd content id
+                    cmd_id.to_bytes(4, 'little'),
+                    # flags_1, only checking save data
+                    (1 if cia.tmd.save_size else 0).to_bytes(4, 'little'),
+                    # extdataid low
+                    extdata_id[0:4],
+                    # reserved
+                    b'\0' * 4,
+                    # flags_2, only using a common value
+                    0x100000000.to_bytes(8, 'little'),
+                    # product code
+                    cia.contents[0].product_code.encode('ascii').ljust(0x10, b'\0'),
+                    # reserved
+                    b'\0' * 0x10,
+                    # unknown
+                    randint(0, 0xFFFFFFFF).to_bytes(4, 'little'),
+                    # reserved
+                    b'\0' * 0x2c
                 ]
 
-                extra_kwargs = {}
-                if is_windows:
-                    # hide console window
-                    extra_kwargs['creationflags'] = 0x08000000  # CREATE_NO_WINDOW
+                title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
-                # extract the title database to add our own entry to
-                self.log('Extracting Title Database...')
-                out = subprocess.run(save3ds_fuse_common_args + ['-x'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT,
-                                     encoding=getpreferredencoding(),
-                                     **extra_kwargs)
-                if out.returncode:
-                    for l in out.stdout.split('\n'):
-                        self.log(l)
-                    self.log('Command line:')
-                    for l in pformat(out.args).split('\n'):
-                        self.log(l)
-                    return False, False
+                cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
+
+            # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
+            save_cifinish(cifinish_path, cifinish_data)
+
+            if title_info_entries:
 
                 for title_id, entry in title_info_entries.items():
                     # write the title info entry to the temp directory
@@ -477,26 +479,26 @@ class CustomInstall:
                         self.log(l)
                     return False, False
 
-            finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
-            hb_dir = join(self.sd, '3ds')
-            finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
-            copied = False
-            if isfile(finalize_3dsx_orig_path):
-                self.log('Copying finalize program to ' + finalize_3dsx_path)
-                makedirs(hb_dir, exist_ok=True)
-                copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
-                copied = True
+                finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
+                hb_dir = join(self.sd, '3ds')
+                finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
+                copied = False
+                if isfile(finalize_3dsx_orig_path):
+                    self.log('Copying finalize program to ' + finalize_3dsx_path)
+                    makedirs(hb_dir, exist_ok=True)
+                    copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
+                    copied = True
 
-            self.log('FINAL STEP:')
-            self.log('Run custom-install-finalize through homebrew launcher.')
-            self.log('This will install a ticket and seed if required.')
-            if copied:
-                self.log('custom-install-finalize has been copied to the SD card.')
-            return True, copied
+                self.log('FINAL STEP:')
+                self.log('Run custom-install-finalize through homebrew launcher.')
+                self.log('This will install a ticket and seed if required.')
+                if copied:
+                    self.log('custom-install-finalize has been copied to the SD card.')
+                return True, copied
 
-        else:
-            self.log('Did not install any titles.', 2)
-            return None, False
+            else:
+                self.log('Did not install any titles.', 2)
+                return None, False
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
