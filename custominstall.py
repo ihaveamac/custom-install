@@ -5,13 +5,13 @@
 # You can find the full license text in LICENSE.md in the root of this project.
 
 from argparse import ArgumentParser
-from os import makedirs, scandir
+from os import makedirs, rename, scandir
 from os.path import dirname, join, isdir, isfile
 from random import randint
 from hashlib import sha256
 from locale import getpreferredencoding
 from pprint import pformat
-from shutil import copyfile
+from shutil import copyfile, copy2, rmtree
 import sys
 from sys import platform, executable
 from tempfile import TemporaryDirectory
@@ -266,6 +266,9 @@ class CustomInstall:
 
                 self.event.on_cia_start(idx)
 
+                temp_title_root = join(self.sd, 'ci-install-temp-' + cia.tmd.title_id)
+                makedirs(temp_title_root, exist_ok=True)
+
                 tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
 
                 try:
@@ -304,6 +307,9 @@ class CustomInstall:
                 cmd_id = len(cia.content_info) if is_dlc else 1
                 cmd_filename = f'{cmd_id:08x}.cmd'
 
+                # this is where the final directory will be moved
+                tidhigh_root = join(sd_path, 'title', tid_parts[0])
+
                 # get the title root where all the contents will be
                 title_root = join(sd_path, 'title', *tid_parts)
                 content_root = join(title_root, 'content')
@@ -311,14 +317,16 @@ class CustomInstall:
                 title_root_cmd = f'/title/{"/".join(tid_parts)}'
                 content_root_cmd = title_root_cmd + '/content'
 
+                temp_content_root = join(temp_title_root, 'content')
+
                 if not self.skip_contents:
-                    makedirs(join(content_root, 'cmd'), exist_ok=True)
+                    makedirs(join(temp_content_root, 'cmd'), exist_ok=True)
                     if cia.tmd.save_size:
-                        makedirs(join(title_root, 'data'), exist_ok=True)
+                        makedirs(join(temp_title_root, 'data'), exist_ok=True)
                     if is_dlc:
                         # create the separate directories for every 256 contents
                         for x in range(((len(cia.content_info) - 1) // 256) + 1):
-                            makedirs(join(content_root, f'{x:08x}'), exist_ok=True)
+                            makedirs(join(temp_content_root, f'{x:08x}'), exist_ok=True)
 
                     # maybe this will be changed in the future
                     tmd_id = 0
@@ -326,10 +334,10 @@ class CustomInstall:
                     tmd_filename = f'{tmd_id:08x}.tmd'
 
                     # write the tmd
-                    enc_path = content_root_cmd + '/' + tmd_filename
-                    self.log(f'Writing {enc_path}...')
-                    with open(join(content_root, tmd_filename), 'wb') as o:
-                        with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(enc_path)) as e:
+                    tmd_enc_path = content_root_cmd + '/' + tmd_filename
+                    self.log(f'Writing {tmd_enc_path}...')
+                    with open(join(temp_content_root, tmd_filename), 'wb') as o:
+                        with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv(tmd_enc_path)) as e:
                             e.write(bytes(cia.tmd))
 
                     # write each content
@@ -337,34 +345,36 @@ class CustomInstall:
                         content_filename = co.id + '.app'
                         if is_dlc:
                             dir_index = format((co.cindex // 256), '08x')
-                            enc_path = content_root_cmd + f'/{dir_index}/{content_filename}'
-                            out_path = join(content_root, dir_index, content_filename)
+                            content_enc_path = content_root_cmd + f'/{dir_index}/{content_filename}'
+                            content_out_path = join(temp_content_root, dir_index, content_filename)
                         else:
-                            enc_path = content_root_cmd + '/' + content_filename
-                            out_path = join(content_root, content_filename)
-                        self.log(f'Writing {enc_path}...')
-                        with cia.open_raw_section(co.cindex) as s, open(out_path, 'wb') as o:
-                            self.copy_with_progress(s, o, co.size, enc_path)
+                            content_enc_path = content_root_cmd + '/' + content_filename
+                            content_out_path = join(temp_content_root, content_filename)
+                        self.log(f'Writing {content_enc_path}...')
+                        with cia.open_raw_section(co.cindex) as s, open(content_out_path, 'wb') as o:
+                            self.copy_with_progress(s, o, co.size, content_enc_path)
 
                     # generate a blank save
                     if cia.tmd.save_size:
-                        enc_path = title_root_cmd + '/data/00000001.sav'
-                        out_path = join(title_root, 'data', '00000001.sav')
-                        if self.overwrite_saves or not isfile(out_path):
-                            cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
+                        sav_enc_path = title_root_cmd + '/data/00000001.sav'
+                        tmp_sav_out_path = join(temp_title_root, 'data', '00000001.sav')
+                        sav_out_path = join(title_root, 'data', '00000001.sav')
+                        if self.overwrite_saves or not isfile(sav_out_path):
+                            cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(sav_enc_path))
                             # in a new save, the first 0x20 are all 00s. the rest can be random
                             data = cipher.encrypt(b'\0' * 0x20)
-                            self.log(f'Generating blank save at {enc_path}...')
-                            with open(out_path, 'wb') as o:
+                            self.log(f'Generating blank save at {sav_enc_path}...')
+                            with open(tmp_sav_out_path, 'wb') as o:
                                 o.write(data)
                                 o.write(b'\0' * (cia.tmd.save_size - 0x20))
                         else:
-                            self.log(f'Not overwriting existing save at {enc_path}')
+                            self.log(f'Copying original save file from {sav_enc_path}...')
+                            copy2(sav_out_path, tmp_sav_out_path)
 
                     # generate and write cmd
-                    enc_path = content_root_cmd + '/cmd/' + cmd_filename
-                    out_path = join(content_root, 'cmd', cmd_filename)
-                    self.log(f'Generating {enc_path}')
+                    cmd_enc_path = content_root_cmd + '/cmd/' + cmd_filename
+                    cmd_out_path = join(temp_content_root, 'cmd', cmd_filename)
+                    self.log(f'Generating {cmd_enc_path}')
                     highest_index = 0
                     content_ids = {}
 
@@ -411,9 +421,9 @@ class CustomInstall:
                     final += b''.join(installed_ids)
                     final += b''.join(cmacs)
 
-                    cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(enc_path))
-                    self.log(f'Writing {enc_path}')
-                    with open(out_path, 'wb') as o:
+                    cipher = crypto.create_ctr_cipher(Keyslot.SD, crypto.sd_path_to_iv(cmd_enc_path))
+                    self.log(f'Writing {cmd_enc_path}')
+                    with open(cmd_out_path, 'wb') as o:
                         o.write(cipher.encrypt(final))
 
                 # this starts building the title info entry
@@ -450,12 +460,19 @@ class CustomInstall:
                     b'\0' * 0x2c
                 ]
 
+                if isdir(title_root):
+                    self.log(f'Removing original install at {title_root}...')
+                    rmtree(title_root)
+
+                makedirs(tidhigh_root, exist_ok=True)
+                rename(temp_title_root, title_root)
+
                 title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
 
                 cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
 
-            # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
-            save_cifinish(cifinish_path, cifinish_data)
+                # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
+                save_cifinish(cifinish_path, cifinish_data)
 
             if title_info_entries:
 
