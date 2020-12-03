@@ -270,7 +270,7 @@ class CustomInstall:
 
                 self.event.on_cia_start(idx)
 
-                temp_title_root = join(self.sd, 'ci-install-temp-' + cia.tmd.title_id)
+                temp_title_root = join(self.sd, f'ci-install-temp-{cia.tmd.title_id}-{randint(0, 0xFFFFFFFF):08x}')
                 makedirs(temp_title_root, exist_ok=True)
 
                 tid_parts = (cia.tmd.title_id[0:8], cia.tmd.title_id[8:16])
@@ -363,7 +363,7 @@ class CustomInstall:
                             if result_hash != co.hash:
                                 self.log(f'WARNING: Hash does not match for {content_enc_path}!')
                                 install_state['failed'].append(display_title)
-                                rename(temp_title_root, f'{temp_title_root}-corrupted-{randint(0, 0xFFFFFFFF):08x}')
+                                rename(temp_title_root, temp_title_root + '-corrupted')
                                 do_continue = True
                                 break
 
