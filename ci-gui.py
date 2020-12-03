@@ -419,17 +419,32 @@ class CustomInstallGUI(ttk.Frame):
         def install():
             try:
                 result, copied_3dsx = installer.start()
-                if result is True:
+                if result:
                     self.log('Done!')
-                    if copied_3dsx:
-                        self.show_info('custom-install-finalize has been copied to the SD card.\n'
+                    if result['installed']:
+                        if copied_3dsx:
+                            message = ('custom-install-finalize has been copied to the SD card.\n'
                                        'To finish the install, run this on the console through the homebrew launcher.\n'
                                        'This will install a ticket and seed if required.')
-                    else:
-                        self.show_info('To finish the install, run custom-install-finalize on the console.\n'
+                        else:
+                            message = ('To finish the install, run custom-install-finalize on the console.\n'
                                        'This will install a ticket and seed if required.')
-                elif result is False:
-                    self.show_error('An error occurred when trying to run save3ds_fuse.')
+                    else:
+                        if result['failed']:
+                            message = ('Some titles failed to install. Others may be and can be finished with '
+                                       'custom-install-finalize.')
+                        else:
+                            message = 'Nothing was installed.'
+
+                    if result['installed']:
+                        message += '\n\nInstalled:\n' + ('\n'.join(result['installed']))
+                    if result['failed']:
+                        message += '\n\nFailed to install:\n' + ('\n'.join(result['failed']))
+
+                    self.show_info(message)
+                elif result is None:
+                    self.show_error("An error occurred when trying to run save3ds_fuse.\n"
+                                    "Either title.db doesn't exist, or save3ds_fuse couldn't be run.")
                     self.open_console()
             except:
                 installer.event.on_error(exc_info())
