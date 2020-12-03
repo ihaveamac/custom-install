@@ -219,6 +219,7 @@ class CustomInstall:
             cifinish_path = join(self.sd, 'cifinish.bin')
 
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
+            self.log(tempdir)
             # set up the common arguments for the two times we call save3ds_fuse
             save3ds_fuse_common_args = [
                 save3ds_fuse_path,
@@ -259,6 +260,16 @@ class CustomInstall:
                 cifinish_data = {}
 
             load_seeddb(self.seeddb)
+
+            finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
+            hb_dir = join(self.sd, '3ds')
+            finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
+            copied = False
+            if isfile(finalize_3dsx_orig_path):
+                self.log('Copying finalize program to ' + finalize_3dsx_path)
+                makedirs(hb_dir, exist_ok=True)
+                copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
+                copied = True
 
             # Now loop through all provided cia files
 
@@ -467,19 +478,13 @@ class CustomInstall:
                 makedirs(tidhigh_root, exist_ok=True)
                 rename(temp_title_root, title_root)
 
-                title_info_entries[cia.tmd.title_id] = b''.join(title_info_entry_data)
-
                 cifinish_data[int(cia.tmd.title_id, 16)] = {'seed': (get_seed(cia.contents[0].program_id) if cia.contents[0].flags.uses_seed else None)}
 
                 # This is saved regardless if any titles were installed, so the file can be upgraded just in case.
                 save_cifinish(cifinish_path, cifinish_data)
 
-            if title_info_entries:
-
-                for title_id, entry in title_info_entries.items():
-                    # write the title info entry to the temp directory
-                    with open(join(tempdir, title_id), 'wb') as o:
-                        o.write(entry)
+                with open(join(tempdir, cia.tmd.title_id), 'wb') as o:
+                    o.write(b''.join(title_info_entry_data))
 
                 # import the directory, now including our title
                 self.log('Importing into Title Database...')
@@ -496,26 +501,12 @@ class CustomInstall:
                         self.log(l)
                     return False, False
 
-                finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
-                hb_dir = join(self.sd, '3ds')
-                finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
-                copied = False
-                if isfile(finalize_3dsx_orig_path):
-                    self.log('Copying finalize program to ' + finalize_3dsx_path)
-                    makedirs(hb_dir, exist_ok=True)
-                    copyfile(finalize_3dsx_orig_path, finalize_3dsx_path)
-                    copied = True
-
-                self.log('FINAL STEP:')
-                self.log('Run custom-install-finalize through homebrew launcher.')
-                self.log('This will install a ticket and seed if required.')
-                if copied:
-                    self.log('custom-install-finalize has been copied to the SD card.')
-                return True, copied
-
-            else:
-                self.log('Did not install any titles.', 2)
-                return None, False
+            self.log('FINAL STEP:')
+            self.log('Run custom-install-finalize through homebrew launcher.')
+            self.log('This will install a ticket and seed if required.')
+            if copied:
+                self.log('custom-install-finalize has been copied to the SD card.')
+            return True, copied
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
