@@ -218,9 +218,6 @@ void finalize_install(void)
 		return;
 	}
 
-	//printf("Deleting %s...\n", CIFINISH_PATH);
-	//unlink(CIFINISH_PATH);
-
 	memcpy(&ticket_buf, basetik_bin, basetik_bin_size);
 
 	for (int i = 0; i < title_count; ++i)
@@ -267,6 +264,9 @@ void finalize_install(void)
 		}
 	}
 
+	printf("Deleting %s...\n", CIFINISH_PATH);
+	unlink(CIFINISH_PATH);
+
 	free(entries);
 }
 
@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	printf("custom-install-finalize v1.4\n");
+	printf("custom-install-finalize v1.5\n");
 
 	finalize_install();
 	// print this at the end in case it gets pushed off the screen
