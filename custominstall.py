@@ -31,10 +31,15 @@ from pyctr.type.cia import CIAReader, CIAError
 from pyctr.type.ncch import NCCHSection
 from pyctr.util import roundup
 
-is_windows = platform == 'win32'
-
 if platform == 'msys':
     platform = 'win32'
+
+is_windows = platform == 'win32'
+
+if is_windows:
+    from ctypes import c_wchar_p, pointer, c_ulonglong, windll
+else:
+    from os import statvfs
 
 # used to run the save3ds_fuse binary next to the script
 frozen = getattr(sys, 'frozen', False)
@@ -64,6 +69,26 @@ class SDPathError(Exception):
 
 class InvalidCIFinishError(Exception):
     pass
+
+
+def get_free_space(path: 'Union[PathLike, bytes, str]'):
+    if is_windows:
+        lpSectorsPerCluster = c_ulonglong(0)
+        lpBytesPerSector = c_ulonglong(0)
+        lpNumberOfFreeClusters = c_ulonglong(0)
+        lpTotalNumberOfClusters = c_ulonglong(0)
+        ret = windll.kernel32.GetDiskFreeSpaceW(c_wchar_p(path), pointer(lpSectorsPerCluster),
+                                                pointer(lpBytesPerSector),
+                                                pointer(lpNumberOfFreeClusters),
+                                                pointer(lpTotalNumberOfClusters))
+        if not ret:
+            raise WindowsError
+        free_blocks = lpNumberOfFreeClusters.value * lpSectorsPerCluster.value
+        free_bytes = free_blocks * lpBytesPerSector.value
+    else:
+        stv = statvfs(path)
+        free_bytes = stv.f_bavail * stv.f_frsize
+    return free_bytes
 
 
 def load_cifinish(path: 'Union[PathLike, bytes, str]'):
@@ -146,6 +171,22 @@ def save_cifinish(path: 'Union[PathLike, bytes, str]', data: dict):
             out.write(b''.join(finalize_entry_data))
 
 
+def get_install_size(title: 'Union[CIAReader, CDNReader]'):
+    sizes = [1] * 5
+
+    if title.tmd.save_size:
+        # one for the data directory, one for the 00000001.sav file
+        sizes.extend((1, title.tmd.save_size))
+
+    for record in title.content_info:
+        sizes.append(record.size)
+
+    # this calculates the size to put in the Title Info Entry
+    title_size = sum(roundup(x, TITLE_ALIGN_SIZE) for x in sizes)
+
+    return title_size
+
+
 class CustomInstall:
     def __init__(self, boot9, seeddb, movable, sd, cifinish_out=None,
                  overwrite_saves=False, skip_contents=False):
@@ -195,6 +236,14 @@ class CustomInstall:
                     reader = CDNReader(path)
             readers.append(reader)
         self.readers = readers
+
+    def check_size(self):
+        total_size = 0
+        for r in self.readers:
+            total_size += get_install_size(r)
+
+        free_space = get_free_space(self.sd)
+        return total_size, free_space
 
     def start(self):
         if frozen:
@@ -281,17 +330,7 @@ class CustomInstall:
                     display_title = cia.tmd.title_id
                 self.log(f'Installing {display_title}...')
 
-                sizes = [1] * 5
-
-                if cia.tmd.save_size:
-                    # one for the data directory, one for the 00000001.sav file
-                    sizes.extend((1, cia.tmd.save_size))
-
-                for record in cia.content_info:
-                    sizes.append(record.size)
-
-                # this calculates the size to put in the Title Info Entry
-                title_size = sum(roundup(x, TITLE_ALIGN_SIZE) for x in sizes)
+                title_size = get_install_size(cia)
 
                 # checks if this is dlc, which has some differences
                 is_dlc = tid_parts[0] == '0004008c'
@@ -606,6 +645,14 @@ if __name__ == "__main__":
     installer.event.on_error += error
 
     installer.prepare_titles(args.cia)
+
+    if not args.skip_contents:
+        total_size, free_space = installer.check_size()
+        if total_size > free_space:
+            installer.event.on_log_msg(f'Not enough free space.\n'
+                                       f'Combined title install size: {total_size / (1024 * 1024):0.2f} MiB\n'
+                                       f'Free space: {free_space / (1024 * 1024):0.2f} MiB')
+            sys.exit(1)
 
     result, copied_3dsx = installer.start()
     if result is False:
