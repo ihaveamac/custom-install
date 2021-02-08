@@ -364,6 +364,9 @@ class CustomInstallGUI(ttk.Frame):
             self.show_error('There are no titles added to install.')
             return
 
+        if taskbar:
+            taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
+
         installer = CustomInstall(boot9=boot9,
                                   seeddb=seeddb,
                                   movable=movable_sed,
@@ -412,9 +415,15 @@ class CustomInstallGUI(ttk.Frame):
                     installer.log(line2)
             self.show_error('An error occurred when trying to read the files.')
             self.open_console()
+            return
 
-        if taskbar:
-            taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
+        if self.skip_contents_var.get() != 1:
+            total_size, free_space = installer.check_size()
+            if total_size > free_space:
+                self.show_error(f'Not enough free space.\n'
+                                f'Combined title install size: {total_size / (1024 * 1024):0.2f} MiB\n'
+                                f'Free space: {free_space / (1024 * 1024):0.2f} MiB')
+                return
 
         def install():
             try:
