@@ -189,6 +189,7 @@ int load_cifinish(char* path, struct finish_db_entry_final **entries)
 		}
 	}
 
+	fclose(fp);
 	return header.title_count;
 
 fail:
