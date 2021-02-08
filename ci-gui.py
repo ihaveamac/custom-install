@@ -22,7 +22,7 @@ from pyctr.util import config_dirs
 from custominstall import CustomInstall
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Dict, List
 
 is_windows = platform == 'win32'
 taskbar = None
@@ -92,6 +92,58 @@ class ConsoleFrame(ttk.Frame):
         self.text.insert(tk.END, sep.join(message) + end)
         self.text.see(tk.END)
         self.text.configure(state=tk.DISABLED)
+
+
+class InstallResults(tk.Toplevel):
+    def __init__(self, parent: tk.Tk = None, *, install_state: 'Dict[str, List[str]]', copied_3dsx: bool):
+        super().__init__(parent)
+        self.parent = parent
+
+        outer_container = ttk.Frame(self)
+        outer_container.pack(fill=tk.BOTH, expand=True)
+
+        if install_state['failed'] and install_state['installed']:
+            # some failed and some worked
+            message = ('Some titles were installed, some failed. Please check the output for more details.\n'
+                       'The ones that were installed can be finished with custom-install-finalize.')
+        elif install_state['failed'] and not install_state['installed']:
+            # all failed
+            message = 'All titles failed to install. Please check the output for more details.'
+        elif install_state['installed'] and not install_state['failed']:
+            # all worked
+            message = 'All titles were installed.'
+        else:
+            message = 'Nothing was installed.'
+
+        if install_state['installed'] and copied_3dsx:
+            message += '\n\ncustom-install-finalize has been copied to the SD card.'
+
+        message_label = ttk.Label(outer_container, text=message)
+        message_label.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=10)
+
+        if install_state['installed']:
+            frame = self.simple_listbox_frame(outer_container, 'Installed', install_state['installed'])
+            frame.grid(row=1, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+
+        if install_state['failed']:
+            frame = self.simple_listbox_frame(outer_container, 'Failed', install_state['failed'])
+            frame.grid(row=2, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+
+    def simple_listbox_frame(self, parent, title: 'str', items: 'List[str]'):
+        frame = ttk.LabelFrame(parent, text=title)
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL)
+        scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
+
+        box = tk.Listbox(frame, highlightthickness=0, yscrollcommand=scrollbar.set, selectmode=tk.EXTENDED)
+        box.grid(row=0, column=0, sticky=tk.NSEW)
+        scrollbar.config(command=box.yview)
+
+        box.insert(tk.END, *items)
+
+        return frame
 
 
 class CustomInstallGUI(ttk.Frame):
@@ -430,28 +482,8 @@ class CustomInstallGUI(ttk.Frame):
                 result, copied_3dsx = installer.start()
                 print(result)
                 if result:
-                    self.log('Done!')
-                    if result['failed']:
-                        message = ('Some titles failed to install. Others may be and can be finished with '
-                                   'custom-install-finalize.')
-                    else:
-                        if result['installed']:
-                            if copied_3dsx:
-                                message = ('custom-install-finalize has been copied to the SD card.\n'
-                                           'To finish the install, run this on the console through the homebrew launcher.\n'
-                                           'This will install a ticket and seed if required.')
-                            else:
-                                message = ('To finish the install, run custom-install-finalize on the console.\n'
-                                           'This will install a ticket and seed if required.')
-                        else:
-                            message = 'Nothing was installed.'
-
-                    if result['installed']:
-                        message += '\n\nInstalled:\n' + ('\n'.join(result['installed']))
-                    if result['failed']:
-                        message += '\n\nFailed to install:\n' + ('\n'.join(result['failed']))
-
-                    self.show_info(message)
+                    result_window = InstallResults(self.parent, install_state=result, copied_3dsx=copied_3dsx)
+                    result_window.focus()
                 elif result is None:
                     self.show_error("An error occurred when trying to run save3ds_fuse.\n"
                                     "Either title.db doesn't exist, or save3ds_fuse couldn't be run.")
