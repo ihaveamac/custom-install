@@ -330,6 +330,7 @@ class CustomInstallGUI(ttk.Frame):
             if results:
                 title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
                 title_read_fail_window.focus()
+            self.sort_treeview()
 
         add_cias = ttk.Button(titlelist_buttons, text='Add CIAs', command=add_cias_callback)
         add_cias.grid(row=0, column=0)
@@ -342,6 +343,8 @@ class CustomInstallGUI(ttk.Frame):
                     success, reason = self.add_cia(d)
                     if not success:
                         self.show_error(f"Couldn't add {basename(d)}: {reason}")
+                    else:
+                        self.sort_treeview()
                 else:
                     self.show_error('tmd file not found in the CDN directory:\n' + d)
 
@@ -361,6 +364,7 @@ class CustomInstallGUI(ttk.Frame):
                 if results:
                     title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
                     title_read_fail_window.focus()
+                self.sort_treeview()
 
         add_dirs = ttk.Button(titlelist_buttons, text='Add folder', command=add_dirs_callback)
         add_dirs.grid(row=0, column=2)
@@ -435,6 +439,14 @@ class CustomInstallGUI(ttk.Frame):
         self.log('Ready.')
 
         self.disable_during_install = (add_cias, add_dirs, remove_selected, start, *self.file_picker_textboxes.values())
+
+    def sort_treeview(self):
+        l = [(self.treeview.set(k, 'titlename'), k) for k in self.treeview.get_children()]
+        # sort by title name
+        l.sort(key=lambda x: x[0].lower())
+
+        for idx, pair in enumerate(l):
+            self.treeview.move(pair[1], '', idx)
 
     def add_cia(self, path):
         path = abspath(path)
@@ -548,7 +560,13 @@ class CustomInstallGUI(ttk.Frame):
                                   skip_contents=self.skip_contents_var.get() == 1,
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
 
-        installer.readers = self.readers.values()
+        # use the treeview which has been sorted alphabetically
+        #installer.readers = self.readers.values()
+        readers_final = []
+        for k in self.treeview.get_children():
+            readers_final.append(self.readers[self.treeview.set(k, 'filepath')])
+
+        installer.readers = readers_final
 
         finished_percent = 0
         max_percentage = 100 * len(self.readers)
