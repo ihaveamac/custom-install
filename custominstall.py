@@ -609,7 +609,7 @@ class CustomInstall:
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description='Manually install a CIA to the SD card for a Nintendo 3DS system.')
+    parser = ArgumentParser(description='Install a CIA to the SD card for a Nintendo 3DS system.')
     parser.add_argument('cia', help='CIA files', nargs='+')
     parser.add_argument('-m', '--movable', help='movable.sed file', required=True)
     parser.add_argument('-b', '--boot9', help='boot9 file')
