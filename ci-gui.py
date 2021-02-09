@@ -339,7 +339,9 @@ class CustomInstallGUI(ttk.Frame):
                                 initialdir=file_parent)
             if d:
                 if isfile(join(d, 'tmd')):
-                    self.add_cia(d)
+                    success, reason = self.add_cia(d)
+                    if not success:
+                        self.show_error(f"Couldn't add {basename(d)}: {reason}")
                 else:
                     self.show_error('tmd file not found in the CDN directory:\n' + d)
 
