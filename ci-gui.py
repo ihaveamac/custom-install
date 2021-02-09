@@ -52,6 +52,10 @@ except KeyError:
 seeddb_paths.insert(0, join(file_parent, 'seeddb.bin'))
 
 
+def clamp(n, smallest, largest):
+    return max(smallest, min(n, largest))
+
+
 def find_first_file(paths):
     for p in paths:
         if isfile(p):
@@ -99,8 +103,18 @@ class InstallResults(tk.Toplevel):
         super().__init__(parent)
         self.parent = parent
 
+        self.wm_withdraw()
+        self.wm_transient(self.parent)
+        self.grab_set()
+        self.wm_title('Install results')
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
         outer_container = ttk.Frame(self)
-        outer_container.pack(fill=tk.BOTH, expand=True)
+        outer_container.grid(sticky=tk.NSEW)
+        outer_container.rowconfigure(0, weight=0)
+        outer_container.columnconfigure(0, weight=1)
 
         if install_state['failed'] and install_state['installed']:
             # some failed and some worked
@@ -122,12 +136,16 @@ class InstallResults(tk.Toplevel):
         message_label.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=10)
 
         if install_state['installed']:
+            outer_container.rowconfigure(1, weight=1)
             frame = self.simple_listbox_frame(outer_container, 'Installed', install_state['installed'])
             frame.grid(row=1, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
 
         if install_state['failed']:
+            outer_container.rowconfigure(2, weight=1)
             frame = self.simple_listbox_frame(outer_container, 'Failed', install_state['failed'])
             frame.grid(row=2, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+
+        self.wm_deiconify()
 
     def simple_listbox_frame(self, parent, title: 'str', items: 'List[str]'):
         frame = ttk.LabelFrame(parent, text=title)
@@ -142,6 +160,8 @@ class InstallResults(tk.Toplevel):
         scrollbar.config(command=box.yview)
 
         box.insert(tk.END, *items)
+
+        box.config(height=clamp(len(items), 3, 10))
 
         return frame
 
@@ -481,7 +501,6 @@ class CustomInstallGUI(ttk.Frame):
         def install():
             try:
                 result, copied_3dsx = installer.start()
-                print(result)
                 if result:
                     result_window = InstallResults(self.parent, install_state=result, copied_3dsx=copied_3dsx)
                     result_window.focus()
