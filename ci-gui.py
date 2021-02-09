@@ -142,7 +142,7 @@ class TitleReadFailResults(tk.Toplevel):
         message_label = ttk.Label(outer_container, text="Some titles couldn't be added.")
         message_label.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=10)
 
-        treeview_frame = ttk.Frame(self)
+        treeview_frame = ttk.Frame(outer_container)
         treeview_frame.grid(row=1, column=0, sticky=tk.NSEW)
         treeview_frame.rowconfigure(0, weight=1)
         treeview_frame.columnconfigure(0, weight=1)
@@ -151,7 +151,7 @@ class TitleReadFailResults(tk.Toplevel):
         treeview_scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
 
         treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
-        treeview.grid(row=0, column=0, sticky=tk.NSEW)
+        treeview.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
         treeview.configure(columns=('filepath', 'reason'), show='headings')
 
         treeview.column('filepath', width=200, anchor=tk.W)
@@ -163,6 +163,14 @@ class TitleReadFailResults(tk.Toplevel):
 
         for path, reason in failed.items():
             treeview.insert('', tk.END, text=path, iid=path, values=(basename(path), reason))
+
+        ok_frame = ttk.Frame(outer_container)
+        ok_frame.grid(row=2, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+        ok_frame.rowconfigure(0, weight=1)
+        ok_frame.columnconfigure(0, weight=1)
+
+        ok_button = ttk.Button(ok_frame, text='OK', command=self.destroy)
+        ok_button.grid(row=0, column=0)
 
         self.wm_deiconify()
 
@@ -213,6 +221,14 @@ class InstallResults(tk.Toplevel):
             outer_container.rowconfigure(2, weight=1)
             frame = simple_listbox_frame(outer_container, 'Failed', install_state['failed'])
             frame.grid(row=2, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+
+        ok_frame = ttk.Frame(outer_container)
+        ok_frame.grid(row=3, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
+        ok_frame.rowconfigure(0, weight=1)
+        ok_frame.columnconfigure(0, weight=1)
+
+        ok_button = ttk.Button(ok_frame, text='OK', command=self.destroy)
+        ok_button.grid(row=0, column=0)
 
         self.wm_deiconify()
 
