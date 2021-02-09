@@ -276,6 +276,16 @@ class CustomInstall:
         else:
             cifinish_path = join(self.sd, 'cifinish.bin')
 
+        try:
+            cifinish_data = load_cifinish(cifinish_path)
+        except InvalidCIFinishError as e:
+            self.log(f'{type(e).__qualname__}: {e}')
+            self.log(f'{cifinish_path} was corrupt!\n'
+                     f'This could mean an issue with the SD card or the filesystem. Please check it for errors.\n'
+                     f'It is also possible, though less likely, to be an issue with custom-install.\n'
+                     f'Exiting now to prevent possible issues. If you want to try again, delete cifinish.bin from the SD card and re-run custom-install.')
+            return None, False
+
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
             # set up the common arguments for the two times we call save3ds_fuse
             save3ds_fuse_common_args = [
@@ -308,12 +318,6 @@ class CustomInstall:
                 return None, False
 
             sd_path = join(sd_path, id1s[0])
-            try:
-                cifinish_data = load_cifinish(cifinish_path)
-            except InvalidCIFinishError as e:
-                self.log(f'{cifinish_path} is invalid, not loading.')
-                self.log(f'{type(e).__qualname__}: {e}')
-                cifinish_data = {}
 
             load_seeddb(self.seeddb)
 
