@@ -467,6 +467,7 @@ class CustomInstallGUI(ttk.Frame):
                     installer.log(line2)
             self.show_error('An error occurred when trying to read the files.')
             self.open_console()
+            self.enable_buttons()
             return
 
         if self.skip_contents_var.get() != 1:
@@ -475,6 +476,7 @@ class CustomInstallGUI(ttk.Frame):
                 self.show_error(f'Not enough free space.\n'
                                 f'Combined title install size: {total_size / (1024 * 1024):0.2f} MiB\n'
                                 f'Free space: {free_space / (1024 * 1024):0.2f} MiB')
+                self.enable_buttons()
                 return
 
         def install():
