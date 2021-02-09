@@ -1,7 +1,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)]() ![Releases](https://img.shields.io/github/downloads/ihaveamac/custom-install/total.svg)
 
 # custom-install
-Experimental script to automate the process of a manual title install for Nintendo 3DS. Originally created late June 2019.
+Installs a title directly to an SD card for the Nintendo 3DS. Originally created late June 2019.
 
 ## Summary
 
