@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from pyctr.crypto.engine import b9_paths
 from pyctr.util import config_dirs
 
-from custominstall import CustomInstall
+from custominstall import CustomInstall, CI_VERSION
 
 if TYPE_CHECKING:
     from typing import Dict, List
@@ -322,8 +322,7 @@ class CustomInstallGUI(ttk.Frame):
         self.status_label = ttk.Label(self, text='Waiting...')
         self.status_label.grid(row=5, column=0, sticky=tk.NSEW)
 
-        self.log('custom-install by ihaveamac', status=False)
-        self.log('https://github.com/ihaveamac/custom-install', status=False)
+        self.log(f'custom-install {CI_VERSION} - https://github.com/ihaveamac/custom-install', status=False)
 
         if is_windows and not taskbar:
             self.log('Note: comtypes module not found.')
@@ -499,7 +498,7 @@ class CustomInstallGUI(ttk.Frame):
 
 
 window = tk.Tk()
-window.title('custom-install')
+window.title(f'custom-install {CI_VERSION}')
 frame = CustomInstallGUI(window)
 frame.pack(fill=tk.BOTH, expand=True)
 window.mainloop()
