@@ -26,9 +26,10 @@ if TYPE_CHECKING:
 from events import Events
 
 from pyctr.crypto import CryptoEngine, Keyslot, load_seeddb, get_seed
-from pyctr.type.cdn import CDNReader
+from pyctr.type.cdn import CDNReader, CDNError
 from pyctr.type.cia import CIAReader, CIAError
 from pyctr.type.ncch import NCCHSection
+from pyctr.type.tmd import TitleMetadataError
 from pyctr.util import roundup
 
 if platform == 'msys':
@@ -221,21 +222,30 @@ class CustomInstall:
 
         return hasher.digest()
 
+    @staticmethod
+    def get_reader(path: 'Union[PathLike, bytes, str]'):
+        if isdir(path):
+            # try the default tmd file
+            reader = CDNReader(join(path, 'tmd'))
+        else:
+            try:
+                reader = CIAReader(path)
+            except CIAError:
+                # if there was an error with parsing the CIA header,
+                # the file would be tried in CDNReader next (assuming it's a tmd)
+                # any other error should be propagated to the caller
+                reader = CDNReader(path)
+        return reader
+
     def prepare_titles(self, paths: 'List[PathLike]'):
         readers = []
         for path in paths:
             self.log(f'Reading {path}')
-            if isdir(path):
-                # try the default tmd file
-                reader = CDNReader(join(path, 'tmd'))
-            else:
-                try:
-                    reader = CIAReader(path)
-                except CIAError:
-                    # if there was an error with parsing the CIA header,
-                    # the file would be tried in CDNReader next (assuming it's a tmd)
-                    # any other error should be propagated to the caller
-                    reader = CDNReader(path)
+            try:
+                reader = self.get_reader(path)
+            except (CIAError, CDNError, TitleMetadataError):
+                self.log(f"Couldn't read {path}, likely corrupt or not a CIA or CDN title")
+                continue
             if reader.tmd.title_id.startswith('00048'):  # DSiWare
                 self.log(f'Skipping {reader.tmd.title_id} - DSiWare is not supported')
                 continue
