@@ -450,6 +450,8 @@ class CustomInstallGUI(ttk.Frame):
 
     def add_cia(self, path):
         path = abspath(path)
+        if path in self.readers:
+            return False, 'File already in list'
         try:
             reader = CustomInstall.get_reader(path)
         except (CIAError, CDNError, TitleMetadataError):
