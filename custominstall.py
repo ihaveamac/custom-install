@@ -236,6 +236,9 @@ class CustomInstall:
                     # the file would be tried in CDNReader next (assuming it's a tmd)
                     # any other error should be propagated to the caller
                     reader = CDNReader(path)
+            if reader.tmd.title_id.startswith('00048'):  # DSiWare
+                self.log(f'Skipping {reader.tmd.title_id} - DSiWare is not supported')
+                continue
             readers.append(reader)
         self.readers = readers
 
