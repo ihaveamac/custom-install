@@ -41,6 +41,8 @@ if is_windows:
 else:
     from os import statvfs
 
+CI_VERSION = '2.1'
+
 # used to run the save3ds_fuse binary next to the script
 frozen = getattr(sys, 'frozen', False)
 script_dir: str
@@ -619,6 +621,7 @@ if __name__ == "__main__":
     parser.add_argument('--overwrite-saves', help='overwrite existing save files', action='store_true')
     parser.add_argument('--cifinish-out', help='path for cifinish.bin file, defaults to (SD root)/cifinish.bin')
 
+    print(f'custom-install {CI_VERSION} - https://github.com/ihaveamac/custom-install')
     args = parser.parse_args()
 
     installer = CustomInstall(boot9=args.boot9,
