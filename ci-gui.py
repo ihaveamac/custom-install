@@ -5,7 +5,7 @@
 # You can find the full license text in LICENSE.md in the root of this project.
 
 from os import environ, scandir
-from os.path import abspath, join, isfile, dirname
+from os.path import abspath, basename, dirname, join, isfile
 from sys import exc_info, platform
 from threading import Thread, Lock
 from time import strftime
@@ -18,8 +18,11 @@ from typing import TYPE_CHECKING
 
 from pyctr.crypto.engine import b9_paths
 from pyctr.util import config_dirs
+from pyctr.type.cdn import CDNError
+from pyctr.type.cia import CIAError
+from pyctr.type.tmd import TitleMetadataError
 
-from custominstall import CustomInstall, CI_VERSION
+from custominstall import CustomInstall, CI_VERSION, load_cifinish, InvalidCIFinishError
 
 if TYPE_CHECKING:
     from typing import Dict, List
@@ -98,6 +101,72 @@ class ConsoleFrame(ttk.Frame):
         self.text.configure(state=tk.DISABLED)
 
 
+def simple_listbox_frame(parent, title: 'str', items: 'List[str]'):
+    frame = ttk.LabelFrame(parent, text=title)
+    frame.rowconfigure(0, weight=1)
+    frame.columnconfigure(0, weight=1)
+
+    scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL)
+    scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
+
+    box = tk.Listbox(frame, highlightthickness=0, yscrollcommand=scrollbar.set, selectmode=tk.EXTENDED)
+    box.grid(row=0, column=0, sticky=tk.NSEW)
+    scrollbar.config(command=box.yview)
+
+    box.insert(tk.END, *items)
+
+    box.config(height=clamp(len(items), 3, 10))
+
+    return frame
+
+
+class TitleReadFailResults(tk.Toplevel):
+    def __init__(self, parent: tk.Tk = None, *, failed: 'Dict[str, str]'):
+        super().__init__(parent)
+        self.parent = parent
+
+        self.wm_withdraw()
+        self.wm_transient(self.parent)
+        self.grab_set()
+        self.wm_title('Failed to add titles')
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        outer_container = ttk.Frame(self)
+        outer_container.grid(sticky=tk.NSEW)
+        outer_container.rowconfigure(0, weight=0)
+        outer_container.rowconfigure(1, weight=1)
+        outer_container.columnconfigure(0, weight=1)
+
+        message_label = ttk.Label(outer_container, text="Some titles couldn't be added.")
+        message_label.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=10)
+
+        treeview_frame = ttk.Frame(self)
+        treeview_frame.grid(row=1, column=0, sticky=tk.NSEW)
+        treeview_frame.rowconfigure(0, weight=1)
+        treeview_frame.columnconfigure(0, weight=1)
+
+        treeview_scrollbar = ttk.Scrollbar(treeview_frame, orient=tk.VERTICAL)
+        treeview_scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
+
+        treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
+        treeview.grid(row=0, column=0, sticky=tk.NSEW)
+        treeview.configure(columns=('filepath', 'reason'), show='headings')
+
+        treeview.column('filepath', width=200, anchor=tk.W)
+        treeview.heading('filepath', text='File path')
+        treeview.column('reason', width=400, anchor=tk.W)
+        treeview.heading('reason', text='Reason')
+
+        treeview_scrollbar.configure(command=treeview.yview)
+
+        for path, reason in failed.items():
+            treeview.insert('', tk.END, text=path, iid=path, values=(basename(path), reason))
+
+        self.wm_deiconify()
+
+
 class InstallResults(tk.Toplevel):
     def __init__(self, parent: tk.Tk = None, *, install_state: 'Dict[str, List[str]]', copied_3dsx: bool):
         super().__init__(parent)
@@ -137,33 +206,15 @@ class InstallResults(tk.Toplevel):
 
         if install_state['installed']:
             outer_container.rowconfigure(1, weight=1)
-            frame = self.simple_listbox_frame(outer_container, 'Installed', install_state['installed'])
+            frame = simple_listbox_frame(outer_container, 'Installed', install_state['installed'])
             frame.grid(row=1, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
 
         if install_state['failed']:
             outer_container.rowconfigure(2, weight=1)
-            frame = self.simple_listbox_frame(outer_container, 'Failed', install_state['failed'])
+            frame = simple_listbox_frame(outer_container, 'Failed', install_state['failed'])
             frame.grid(row=2, column=0, sticky=tk.NSEW, padx=10, pady=(0, 10))
 
         self.wm_deiconify()
-
-    def simple_listbox_frame(self, parent, title: 'str', items: 'List[str]'):
-        frame = ttk.LabelFrame(parent, text=title)
-        frame.rowconfigure(0, weight=1)
-        frame.columnconfigure(0, weight=1)
-
-        scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL)
-        scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
-
-        box = tk.Listbox(frame, highlightthickness=0, yscrollcommand=scrollbar.set, selectmode=tk.EXTENDED)
-        box.grid(row=0, column=0, sticky=tk.NSEW)
-        scrollbar.config(command=box.yview)
-
-        box.insert(tk.END, *items)
-
-        box.config(height=clamp(len(items), 3, 10))
-
-        return frame
 
 
 class CustomInstallGUI(ttk.Frame):
@@ -172,6 +223,9 @@ class CustomInstallGUI(ttk.Frame):
     def __init__(self, parent: tk.Tk = None):
         super().__init__(parent)
         self.parent = parent
+
+        # readers to give to CustomInstall at the install
+        self.readers = {}
 
         self.lock = Lock()
 
@@ -202,6 +256,16 @@ class CustomInstallGUI(ttk.Frame):
             f = fd.askdirectory(parent=parent, title='Select SD root (the directory or drive that contains '
                                                      '"Nintendo 3DS")', initialdir=file_parent, mustexist=True)
             if f:
+                cifinish_path = join(f, 'cifinish.bin')
+                try:
+                    load_cifinish(cifinish_path)
+                except InvalidCIFinishError:
+                    self.show_error(f'{cifinish_path} was corrupt!\n\n'
+                                    f'This could mean an issue with the SD card or the filesystem. Please check it for errors.\n'
+                                    f'It is also possible, though less likely, to be an issue with custom-install.\n\n'
+                                    f'Stopping now to prevent possible issues. If you want to try again, delete cifinish.bin from the SD card and re-run custom-install.')
+                    return
+
                 sd_selected.delete('1.0', tk.END)
                 sd_selected.insert(tk.END, f)
 
@@ -251,19 +315,26 @@ class CustomInstallGUI(ttk.Frame):
 
         # ---------------------------------------------------------------- #
         # create buttons to add cias
-        listbox_buttons = ttk.Frame(self)
-        listbox_buttons.grid(row=1, column=0)
+        titlelist_buttons = ttk.Frame(self)
+        titlelist_buttons.grid(row=1, column=0)
 
         def add_cias_callback():
             files = fd.askopenfilenames(parent=parent, title='Select CIA files', filetypes=[('CIA files', '*.cia')],
                                         initialdir=file_parent)
+            results = {}
             for f in files:
-                self.add_cia(f)
+                success, reason = self.add_cia(f)
+                if not success:
+                    results[f] = reason
 
-        add_cias = ttk.Button(listbox_buttons, text='Add CIAs', command=add_cias_callback)
+            if results:
+                title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
+                title_read_fail_window.focus()
+
+        add_cias = ttk.Button(titlelist_buttons, text='Add CIAs', command=add_cias_callback)
         add_cias.grid(row=0, column=0)
 
-        def add_cias_callback():
+        def add_cdn_callback():
             d = fd.askdirectory(parent=parent, title='Select folder containing title contents in CDN format',
                                 initialdir=file_parent)
             if d:
@@ -272,44 +343,55 @@ class CustomInstallGUI(ttk.Frame):
                 else:
                     self.show_error('tmd file not found in the CDN directory:\n' + d)
 
-        add_cias = ttk.Button(listbox_buttons, text='Add CDN title folder', command=add_cias_callback)
-        add_cias.grid(row=0, column=1)
+        add_cdn = ttk.Button(titlelist_buttons, text='Add CDN title folder', command=add_cdn_callback)
+        add_cdn.grid(row=0, column=1)
 
         def add_dirs_callback():
             d = fd.askdirectory(parent=parent, title='Select folder containing CIA files', initialdir=file_parent)
             if d:
+                results = {}
                 for f in scandir(d):
                     if f.name.lower().endswith('.cia'):
-                        self.add_cia(f.path)
+                        success, reason = self.add_cia(f.path)
+                        if not success:
+                            results[f] = reason
 
-        add_dirs = ttk.Button(listbox_buttons, text='Add folder', command=add_dirs_callback)
+                if results:
+                    title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
+                    title_read_fail_window.focus()
+
+        add_dirs = ttk.Button(titlelist_buttons, text='Add folder', command=add_dirs_callback)
         add_dirs.grid(row=0, column=2)
 
         def remove_selected_callback():
-            indexes = self.cia_listbox.curselection()
-            n = 0
-            for i in indexes:
-                self.cia_listbox.delete(i - n)
-                n += 1
+            for entry in self.treeview.selection():
+                self.remove_cia(entry)
 
-        remove_selected = ttk.Button(listbox_buttons, text='Remove selected', command=remove_selected_callback)
+        remove_selected = ttk.Button(titlelist_buttons, text='Remove selected', command=remove_selected_callback)
         remove_selected.grid(row=0, column=3)
 
         # ---------------------------------------------------------------- #
-        # create listbox
-        listbox_frame = ttk.Frame(self)
-        listbox_frame.grid(row=2, column=0, sticky=tk.NSEW)
-        listbox_frame.rowconfigure(0, weight=1)
-        listbox_frame.columnconfigure(0, weight=1)
+        # create treeview
+        treeview_frame = ttk.Frame(self)
+        treeview_frame.grid(row=2, column=0, sticky=tk.NSEW)
+        treeview_frame.rowconfigure(0, weight=1)
+        treeview_frame.columnconfigure(0, weight=1)
 
-        cia_listbox_scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL)
-        cia_listbox_scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
+        treeview_scrollbar = ttk.Scrollbar(treeview_frame, orient=tk.VERTICAL)
+        treeview_scrollbar.grid(row=0, column=1, sticky=tk.NSEW)
 
-        self.cia_listbox = tk.Listbox(listbox_frame, highlightthickness=0, yscrollcommand=cia_listbox_scrollbar.set,
-                                      selectmode=tk.EXTENDED)
-        self.cia_listbox.grid(row=0, column=0, sticky=tk.NSEW)
+        self.treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
+        self.treeview.grid(row=0, column=0, sticky=tk.NSEW)
+        self.treeview.configure(columns=('filepath', 'titleid', 'titlename'), show='headings')
 
-        cia_listbox_scrollbar.config(command=self.cia_listbox.yview)
+        self.treeview.column('filepath', width=200, anchor=tk.W)
+        self.treeview.heading('filepath', text='File path')
+        self.treeview.column('titleid', width=50, anchor=tk.W)
+        self.treeview.heading('titleid', text='Title ID')
+        self.treeview.column('titlename', width=150, anchor=tk.W)
+        self.treeview.heading('titlename', text='Title name')
+
+        treeview_scrollbar.configure(command=self.treeview.yview)
 
         # ---------------------------------------------------------------- #
         # create progressbar
@@ -354,7 +436,26 @@ class CustomInstallGUI(ttk.Frame):
 
     def add_cia(self, path):
         path = abspath(path)
-        self.cia_listbox.insert(tk.END, path)
+        try:
+            reader = CustomInstall.get_reader(path)
+        except (CIAError, CDNError, TitleMetadataError):
+            return False, 'Failed to read as a CIA or CDN title, probably corrupt'
+        except Exception as e:
+            return False, f'Exception occurred: {type(e).__name__}: {e}'
+
+        if reader.tmd.title_id.startswith('00048'):
+            return False, 'DSiWare is not supported'
+        try:
+            title_name = reader.contents[0].exefs.icon.get_app_title().short_desc
+        except:
+            title_name = '(No title)'
+        self.treeview.insert('', tk.END, text=path, iid=path, values=(path, reader.tmd.title_id, title_name))
+        self.readers[path] = reader
+        return True, ''
+
+    def remove_cia(self, path):
+        self.treeview.delete(path)
+        del self.readers[path]
 
     def open_console(self):
         if self.console:
@@ -428,12 +529,12 @@ class CustomInstallGUI(ttk.Frame):
                 return
 
         self.disable_buttons()
-        self.log('Starting install...')
 
-        cias = self.cia_listbox.get(0, tk.END)
-        if not len(cias):
+        if not len(self.readers):
             self.show_error('There are no titles added to install.')
             return
+
+        self.log('Starting install...')
 
         if taskbar:
             taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
@@ -445,8 +546,10 @@ class CustomInstallGUI(ttk.Frame):
                                   skip_contents=self.skip_contents_var.get() == 1,
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
 
+        installer.readers = self.readers.values()
+
         finished_percent = 0
-        max_percentage = 100 * len(cias)
+        max_percentage = 100 * len(self.readers)
         self.progressbar.config(maximum=max_percentage)
 
         def ci_on_log_msg(message, *args, **kwargs):
@@ -477,17 +580,6 @@ class CustomInstallGUI(ttk.Frame):
         installer.event.update_percentage += ci_update_percentage
         installer.event.on_error += ci_on_error
         installer.event.on_cia_start += ci_on_cia_start
-
-        try:
-            installer.prepare_titles(cias)
-        except Exception as e:
-            for line in format_exception(*exc_info()):
-                for line2 in line.split('\n')[:-1]:
-                    installer.log(line2)
-            self.show_error('An error occurred when trying to read the files.')
-            self.open_console()
-            self.enable_buttons()
-            return
 
         if self.skip_contents_var.get() != 1:
             total_size, free_space = installer.check_size()
