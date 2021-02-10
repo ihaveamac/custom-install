@@ -191,8 +191,8 @@ def get_install_size(title: 'Union[CIAReader, CDNReader]'):
 
 
 class CustomInstall:
-    def __init__(self, boot9, seeddb, movable, sd, cifinish_out=None,
-                 overwrite_saves=False, skip_contents=False):
+    def __init__(self, *, movable, sd, cifinish_out=None, overwrite_saves=False, skip_contents=False,
+                 boot9=None, seeddb=None):
         self.event = Events()
         self.log_lines = []  # Stores all info messages for user to view
 
@@ -329,7 +329,8 @@ class CustomInstall:
 
             sd_path = join(sd_path, id1s[0])
 
-            load_seeddb(self.seeddb)
+            if self.seeddb:
+                load_seeddb(self.seeddb)
 
             install_state = {'installed': [], 'failed': []}
 
