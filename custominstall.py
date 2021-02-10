@@ -5,6 +5,7 @@
 # You can find the full license text in LICENSE.md in the root of this project.
 
 from argparse import ArgumentParser
+from enum import Enum
 from os import makedirs, rename, scandir
 from os.path import dirname, join, isdir, isfile
 from random import randint
@@ -21,7 +22,7 @@ import subprocess
 
 if TYPE_CHECKING:
     from os import PathLike
-    from typing import List, Union
+    from typing import List, Union, Tuple
 
 from events import Events
 
@@ -72,6 +73,15 @@ class SDPathError(Exception):
 
 class InvalidCIFinishError(Exception):
     pass
+
+
+class InstallStatus(Enum):
+    Waiting = 0
+    Starting = 1
+    Writing = 2
+    Finishing = 3
+    Done = 4
+    Failed = 5
 
 
 def get_free_space(path: 'Union[PathLike, bytes, str]'):
@@ -199,7 +209,7 @@ class CustomInstall:
         self.crypto = CryptoEngine(boot9=boot9)
         self.crypto.setup_sd_key_from_file(movable)
         self.seeddb = seeddb
-        self.readers: 'List[Union[CDNReader, CIAReader]]' = []
+        self.readers: 'List[Tuple[Union[CDNReader, CIAReader], Union[PathLike, bytes, str]]]' = []
         self.sd = sd
         self.skip_contents = skip_contents
         self.overwrite_saves = overwrite_saves
@@ -249,12 +259,12 @@ class CustomInstall:
             if reader.tmd.title_id.startswith('00048'):  # DSiWare
                 self.log(f'Skipping {reader.tmd.title_id} - DSiWare is not supported')
                 continue
-            readers.append(reader)
+            readers.append((reader, path))
         self.readers = readers
 
     def check_size(self):
         total_size = 0
-        for r in self.readers:
+        for r, _ in self.readers:
             total_size += get_install_size(r)
 
         free_space = get_free_space(self.sd)
@@ -335,9 +345,11 @@ class CustomInstall:
             install_state = {'installed': [], 'failed': []}
 
             # Now loop through all provided cia files
-            for idx, cia in enumerate(self.readers):
+            for idx, info in enumerate(self.readers):
+                cia, path = info
 
                 self.event.on_cia_start(idx)
+                self.event.update_status(path, InstallStatus.Starting)
 
                 temp_title_root = join(self.sd, f'ci-install-temp-{cia.tmd.title_id}-{randint(0, 0xFFFFFFFF):08x}')
                 makedirs(temp_title_root, exist_ok=True)
@@ -384,6 +396,7 @@ class CustomInstall:
                 temp_content_root = join(temp_title_root, 'content')
 
                 if not self.skip_contents:
+                    self.event.update_status(path, InstallStatus.Writing)
                     makedirs(join(temp_content_root, 'cmd'), exist_ok=True)
                     if cia.tmd.save_size:
                         makedirs(join(temp_title_root, 'data'), exist_ok=True)
@@ -424,6 +437,7 @@ class CustomInstall:
                                 install_state['failed'].append(display_title)
                                 rename(temp_title_root, temp_title_root + '-corrupted')
                                 do_continue = True
+                                self.event.update_status(path, InstallStatus.Failed)
                                 break
 
                     if do_continue:
@@ -535,6 +549,7 @@ class CustomInstall:
                     b'\0' * 0x2c
                 ]
 
+                self.event.update_status(path, InstallStatus.Finishing)
                 if isdir(title_root):
                     self.log(f'Removing original install at {title_root}...')
                     rmtree(title_root)
@@ -564,8 +579,10 @@ class CustomInstall:
                     for l in pformat(out.args).split('\n'):
                         self.log(l)
                     install_state['failed'].append(display_title)
-
-                install_state['installed'].append(display_title)
+                    self.event.update_status(path, InstallStatus.Failed)
+                else:
+                    install_state['installed'].append(display_title)
+                    self.event.update_status(path, InstallStatus.Done)
 
             copied = False
             if install_state['installed']:

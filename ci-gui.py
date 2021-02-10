@@ -23,7 +23,7 @@ from pyctr.type.cdn import CDNError
 from pyctr.type.cia import CIAError
 from pyctr.type.tmd import TitleMetadataError
 
-from custominstall import CustomInstall, CI_VERSION, load_cifinish, InvalidCIFinishError
+from custominstall import CustomInstall, CI_VERSION, load_cifinish, InvalidCIFinishError, InstallStatus
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -74,6 +74,15 @@ default_movable_sed_path = find_first_file([join(file_parent, 'movable.sed')])
 
 if default_seeddb_path:
     load_seeddb(default_seeddb_path)
+
+statuses = {
+    InstallStatus.Waiting: 'Waiting',
+    InstallStatus.Starting: 'Starting',
+    InstallStatus.Writing: 'Writing',
+    InstallStatus.Finishing: 'Finishing',
+    InstallStatus.Done: 'Done',
+    InstallStatus.Failed: 'Failed',
+}
 
 
 class ConsoleFrame(ttk.Frame):
@@ -418,14 +427,16 @@ class CustomInstallGUI(ttk.Frame):
 
         self.treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
         self.treeview.grid(row=0, column=0, sticky=tk.NSEW)
-        self.treeview.configure(columns=('filepath', 'titleid', 'titlename'), show='headings')
+        self.treeview.configure(columns=('filepath', 'titleid', 'titlename', 'status'), show='headings')
 
         self.treeview.column('filepath', width=200, anchor=tk.W)
         self.treeview.heading('filepath', text='File path')
-        self.treeview.column('titleid', width=50, anchor=tk.W)
+        self.treeview.column('titleid', width=70, anchor=tk.W)
         self.treeview.heading('titleid', text='Title ID')
         self.treeview.column('titlename', width=150, anchor=tk.W)
         self.treeview.heading('titlename', text='Title name')
+        self.treeview.column('status', width=20, anchor=tk.W)
+        self.treeview.heading('status', text='Status')
 
         treeview_scrollbar.configure(command=self.treeview.yview)
 
@@ -494,6 +505,9 @@ class CustomInstallGUI(ttk.Frame):
                 return False
         return self.b9_loaded
 
+    def update_status(self, path: 'Union[PathLike, bytes, str]', status: InstallStatus):
+        self.treeview.set(path, 'status', statuses[status])
+
     def add_cia(self, path):
         if not self.check_b9_loaded():
             # this shouldn't happen
@@ -516,7 +530,8 @@ class CustomInstallGUI(ttk.Frame):
             title_name = reader.contents[0].exefs.icon.get_app_title().short_desc
         except:
             title_name = '(No title)'
-        self.treeview.insert('', tk.END, text=path, iid=path, values=(path, reader.tmd.title_id, title_name))
+        self.treeview.insert('', tk.END, text=path, iid=path,
+                             values=(path, reader.tmd.title_id, title_name, statuses[InstallStatus.Waiting]))
         self.readers[path] = reader
         return True, ''
 
@@ -596,12 +611,13 @@ class CustomInstallGUI(ttk.Frame):
                                     'Continue?'):
                 return
 
-        self.disable_buttons()
-
         if not len(self.readers):
             self.show_error('There are no titles added to install.')
             return
 
+        for path in self.readers.keys():
+            self.update_status(path, InstallStatus.Waiting)
+        self.disable_buttons()
         self.log('Starting install...')
 
         if taskbar:
@@ -613,10 +629,10 @@ class CustomInstallGUI(ttk.Frame):
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
 
         # use the treeview which has been sorted alphabetically
-        #installer.readers = self.readers.values()
         readers_final = []
         for k in self.treeview.get_children():
-            readers_final.append(self.readers[self.treeview.set(k, 'filepath')])
+            filepath = self.treeview.set(k, 'filepath')
+            readers_final.append((self.readers[filepath], filepath))
 
         installer.readers = readers_final
 
@@ -652,6 +668,7 @@ class CustomInstallGUI(ttk.Frame):
         installer.event.update_percentage += ci_update_percentage
         installer.event.on_error += ci_on_error
         installer.event.on_cia_start += ci_on_cia_start
+        installer.event.update_status += self.update_status
 
         if self.skip_contents_var.get() != 1:
             total_size, free_space = installer.check_size()
