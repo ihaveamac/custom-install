@@ -16,6 +16,7 @@ import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 from typing import TYPE_CHECKING
 
+from pyctr.crypto import MissingSeedError, CryptoEngine, load_seeddb
 from pyctr.crypto.engine import b9_paths
 from pyctr.util import config_dirs
 from pyctr.type.cdn import CDNError
@@ -25,7 +26,8 @@ from pyctr.type.tmd import TitleMetadataError
 from custominstall import CustomInstall, CI_VERSION, load_cifinish, InvalidCIFinishError
 
 if TYPE_CHECKING:
-    from typing import Dict, List
+    from os import PathLike
+    from typing import Dict, List, Union
 
 is_windows = platform == 'win32'
 taskbar = None
@@ -69,6 +71,9 @@ def find_first_file(paths):
 default_b9_path = find_first_file(b9_paths)
 default_seeddb_path = find_first_file(seeddb_paths)
 default_movable_sed_path = find_first_file([join(file_parent, 'movable.sed')])
+
+if default_seeddb_path:
+    load_seeddb(default_seeddb_path)
 
 
 class ConsoleFrame(ttk.Frame):
@@ -235,6 +240,7 @@ class InstallResults(tk.Toplevel):
 
 class CustomInstallGUI(ttk.Frame):
     console = None
+    b9_loaded = False
 
     def __init__(self, parent: tk.Tk = None):
         super().__init__(parent)
@@ -304,13 +310,14 @@ class CustomInstallGUI(ttk.Frame):
         self.file_picker_textboxes['sd'] = sd_selected
 
         # This feels so wrong.
-        def create_required_file_picker(type_name, types, default, row):
+        def create_required_file_picker(type_name, types, default, row, callback=lambda filename: None):
             def internal_callback():
                 f = fd.askopenfilename(parent=parent, title='Select ' + type_name, filetypes=types,
                                        initialdir=file_parent)
                 if f:
                     selected.delete('1.0', tk.END)
                     selected.insert(tk.END, f)
+                    callback(f)
 
             type_label = ttk.Label(file_pickers, text=type_name)
             type_label.grid(row=row, column=0)
@@ -325,8 +332,15 @@ class CustomInstallGUI(ttk.Frame):
 
             self.file_picker_textboxes[type_name] = selected
 
-        create_required_file_picker('boot9', [('boot9 file', '*.bin')], default_b9_path, 1)
-        create_required_file_picker('seeddb', [('seeddb file', '*.bin')], default_seeddb_path, 2)
+        def b9_callback(path: 'Union[PathLike, bytes, str]'):
+            self.check_b9_loaded()
+            self.enable_buttons()
+
+        def seeddb_callback(path: 'Union[PathLike, bytes, str]'):
+            load_seeddb(path)
+
+        create_required_file_picker('boot9', [('boot9 file', '*.bin')], default_b9_path, 1, b9_callback)
+        create_required_file_picker('seeddb', [('seeddb file', '*.bin')], default_seeddb_path, 2, seeddb_callback)
         create_required_file_picker('movable.sed', [('movable.sed file', '*.sed')], default_movable_sed_path, 3)
 
         # ---------------------------------------------------------------- #
@@ -454,7 +468,13 @@ class CustomInstallGUI(ttk.Frame):
 
         self.log('Ready.')
 
-        self.disable_during_install = (add_cias, add_dirs, remove_selected, start, *self.file_picker_textboxes.values())
+        self.require_boot9 = (add_cias, add_cdn, add_dirs, remove_selected, start)
+
+        self.disable_buttons()
+        self.check_b9_loaded()
+        self.enable_buttons()
+        if not self.b9_loaded:
+            self.log('Note: boot9 was not auto-detected. Please choose it before adding any titles.')
 
     def sort_treeview(self):
         l = [(self.treeview.set(k, 'titlename'), k) for k in self.treeview.get_children()]
@@ -464,7 +484,20 @@ class CustomInstallGUI(ttk.Frame):
         for idx, pair in enumerate(l):
             self.treeview.move(pair[1], '', idx)
 
+    def check_b9_loaded(self):
+        if not self.b9_loaded:
+            boot9 = self.file_picker_textboxes['boot9'].get('1.0', tk.END).strip()
+            try:
+                tmp_crypto = CryptoEngine(boot9=boot9)
+                self.b9_loaded = tmp_crypto.b9_keys_set
+            except:
+                return False
+        return self.b9_loaded
+
     def add_cia(self, path):
+        if not self.check_b9_loaded():
+            # this shouldn't happen
+            return False, 'Please choose boot9 first'
         path = abspath(path)
         if path in self.readers:
             return False, 'File already in list'
@@ -472,6 +505,8 @@ class CustomInstallGUI(ttk.Frame):
             reader = CustomInstall.get_reader(path)
         except (CIAError, CDNError, TitleMetadataError):
             return False, 'Failed to read as a CIA or CDN title, probably corrupt'
+        except MissingSeedError:
+            return False, 'Latest seeddb.bin is required, check the README for details'
         except Exception as e:
             return False, f'Exception occurred: {type(e).__name__}: {e}'
 
@@ -532,24 +567,25 @@ class CustomInstallGUI(ttk.Frame):
         mb.showinfo('Info', message, parent=self.parent)
 
     def disable_buttons(self):
-        for b in self.disable_during_install:
+        for b in self.require_boot9:
+            b.config(state=tk.DISABLED)
+        for b in self.file_picker_textboxes.values():
             b.config(state=tk.DISABLED)
 
     def enable_buttons(self):
-        for b in self.disable_during_install:
+        if self.b9_loaded:
+            for b in self.require_boot9:
+                b.config(state=tk.NORMAL)
+        for b in self.file_picker_textboxes.values():
             b.config(state=tk.NORMAL)
 
     def start_install(self):
         sd_root = self.file_picker_textboxes['sd'].get('1.0', tk.END).strip()
-        boot9 = self.file_picker_textboxes['boot9'].get('1.0', tk.END).strip()
         seeddb = self.file_picker_textboxes['seeddb'].get('1.0', tk.END).strip()
         movable_sed = self.file_picker_textboxes['movable.sed'].get('1.0', tk.END).strip()
 
         if not sd_root:
             self.show_error('SD root is not specified.')
-            return
-        if not boot9:
-            self.show_error('boot9 is not specified.')
             return
         if not movable_sed:
             self.show_error('movable.sed is not specified.')
@@ -571,9 +607,7 @@ class CustomInstallGUI(ttk.Frame):
         if taskbar:
             taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
 
-        installer = CustomInstall(boot9=boot9,
-                                  seeddb=seeddb,
-                                  movable=movable_sed,
+        installer = CustomInstall(movable=movable_sed,
                                   sd=sd_root,
                                   skip_contents=self.skip_contents_var.get() == 1,
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
