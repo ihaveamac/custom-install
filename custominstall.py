@@ -6,6 +6,7 @@
 
 from argparse import ArgumentParser
 from enum import Enum
+from glob import glob
 from os import makedirs, rename, scandir
 from os.path import dirname, join, isdir, isfile
 from random import randint
@@ -43,7 +44,7 @@ if is_windows:
 else:
     from os import statvfs
 
-CI_VERSION = '2.1b2'
+CI_VERSION = '2.1b3.dev1'
 
 # used to run the save3ds_fuse binary next to the script
 frozen = getattr(sys, 'frozen', False)
@@ -279,7 +280,7 @@ class CustomInstall:
             save3ds_fuse_path += '.exe'
         if not isfile(save3ds_fuse_path):
             self.log("Couldn't find " + save3ds_fuse_path, 2)
-            return None, False
+            return None, False, 0
 
         crypto = self.crypto
         # TODO: Move a lot of these into their own methods
@@ -304,7 +305,7 @@ class CustomInstall:
                      f'This could mean an issue with the SD card or the filesystem. Please check it for errors.\n'
                      f'It is also possible, though less likely, to be an issue with custom-install.\n'
                      f'Exiting now to prevent possible issues. If you want to try again, delete cifinish.bin from the SD card and re-run custom-install.')
-            return None, False
+            return None, False, 0
 
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
             # set up the common arguments for the two times we call save3ds_fuse
@@ -335,7 +336,7 @@ class CustomInstall:
                 self.log('Command line:')
                 for l in pformat(out.args).split('\n'):
                     self.log(l)
-                return None, False
+                return None, False, 0
 
             sd_path = join(sd_path, id1s[0])
 
@@ -585,7 +586,13 @@ class CustomInstall:
                     self.event.update_status(path, InstallStatus.Done)
 
             copied = False
+            # launchable applications, not DLC or update data
+            application_count = len(glob(join(tempdir, '00040000*')))
             if install_state['installed']:
+                if application_count >= 300:
+                    self.log(f'{application_count} installed applications were detected.', 1)
+                    self.log('The HOME Menu will only show 300 icons.', 1)
+                    self.log('Some applications (not updates or DLC) will need to be deleted.', 1)
                 finalize_3dsx_orig_path = join(script_dir, 'custom-install-finalize.3dsx')
                 hb_dir = join(self.sd, '3ds')
                 finalize_3dsx_path = join(hb_dir, 'custom-install-finalize.3dsx')
@@ -601,7 +608,7 @@ class CustomInstall:
                 if copied:
                     self.log('custom-install-finalize has been copied to the SD card.')
 
-            return install_state, copied
+            return install_state, copied, application_count
 
     def get_sd_path(self):
         sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())

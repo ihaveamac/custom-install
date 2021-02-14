@@ -190,7 +190,8 @@ class TitleReadFailResults(tk.Toplevel):
 
 
 class InstallResults(tk.Toplevel):
-    def __init__(self, parent: tk.Tk = None, *, install_state: 'Dict[str, List[str]]', copied_3dsx: bool):
+    def __init__(self, parent: tk.Tk = None, *, install_state: 'Dict[str, List[str]]', copied_3dsx: bool,
+                 application_count: int):
         super().__init__(parent)
         self.parent = parent
 
@@ -222,6 +223,11 @@ class InstallResults(tk.Toplevel):
 
         if install_state['installed'] and copied_3dsx:
             message += '\n\ncustom-install-finalize has been copied to the SD card.'
+
+        if application_count >= 300:
+            message += (f'\n\nWarning: {application_count} installed applications were detected.\n'
+                        f'The HOME Menu will only show 300 icons.\n'
+                        f'Some applications (not updates or DLC) will need to be deleted.')
 
         message_label = ttk.Label(outer_container, text=message)
         message_label.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=10)
@@ -681,9 +687,12 @@ class CustomInstallGUI(ttk.Frame):
 
         def install():
             try:
-                result, copied_3dsx = installer.start()
+                result, copied_3dsx, application_count = installer.start()
                 if result:
-                    result_window = InstallResults(self.parent, install_state=result, copied_3dsx=copied_3dsx)
+                    result_window = InstallResults(self.parent,
+                                                   install_state=result,
+                                                   copied_3dsx=copied_3dsx,
+                                                   application_count=application_count)
                     result_window.focus()
                 elif result is None:
                     self.show_error("An error occurred when trying to run save3ds_fuse.\n"
