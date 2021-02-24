@@ -7,6 +7,7 @@
 from argparse import ArgumentParser
 from enum import Enum
 from glob import glob
+import gzip
 from os import makedirs, rename, scandir
 from os.path import dirname, join, isdir, isfile
 from random import randint
@@ -291,6 +292,8 @@ class CustomInstall:
                               f'please remove extra directories')
         elif len(id1s) == 0:
             raise SDPathError(f'Could not find a suitable id1 directory for id0 {crypto.id0.hex()}')
+        id1 = id1s[0]
+        sd_path = join(sd_path, id1)
 
         if self.cifinish_out:
             cifinish_path = self.cifinish_out
@@ -306,6 +309,40 @@ class CustomInstall:
                      f'It is also possible, though less likely, to be an issue with custom-install.\n'
                      f'Exiting now to prevent possible issues. If you want to try again, delete cifinish.bin from the SD card and re-run custom-install.')
             return None, False, 0
+
+        db_path = join(sd_path, 'dbs')
+        titledb_path = join(db_path, 'title.db')
+        importdb_path = join(db_path, 'import.db')
+        if not isfile(titledb_path):
+            makedirs(db_path, exist_ok=True)
+            with gzip.open(join(script_dir, 'title.db.gz')) as f:
+                tdb = f.read()
+
+            self.log(f'Creating title.db...')
+            with open(titledb_path, 'wb') as o:
+                with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv('/dbs/title.db')) as e:
+                    e.write(tdb)
+
+                    cmac = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                    cmac_data = [b'CTR-9DB0', 0x2.to_bytes(4, 'little'), tdb[0x100:0x200]]
+                    cmac.update(sha256(b''.join(cmac_data)).digest())
+
+                    e.seek(0)
+                    e.write(cmac.digest())
+
+            self.log(f'Creating import.db...')
+            with open(importdb_path, 'wb') as o:
+                with self.crypto.create_ctr_io(Keyslot.SD, o, self.crypto.sd_path_to_iv('/dbs/import.db')) as e:
+                    e.write(tdb)
+
+                    cmac = crypto.create_cmac_object(Keyslot.CMACSDNAND)
+                    cmac_data = [b'CTR-9DB0', 0x3.to_bytes(4, 'little'), tdb[0x100:0x200]]
+                    cmac.update(sha256(b''.join(cmac_data)).digest())
+
+                    e.seek(0)
+                    e.write(cmac.digest())
+
+            del tdb
 
         with TemporaryDirectory(suffix='-custom-install') as tempdir:
             # set up the common arguments for the two times we call save3ds_fuse
@@ -337,8 +374,6 @@ class CustomInstall:
                 for l in pformat(out.args).split('\n'):
                     self.log(l)
                 return None, False, 0
-
-            sd_path = join(sd_path, id1s[0])
 
             if self.seeddb:
                 load_seeddb(self.seeddb)
