@@ -1,2 +1,2 @@
 events==0.4
-pyctr==0.4.5
+pyctr==0.4.6
