@@ -734,7 +734,11 @@ if __name__ == "__main__":
                                        f'Free space: {free_space / (1024 * 1024):0.2f} MiB')
             sys.exit(1)
 
-    result, copied_3dsx = installer.start()
+    result, copied_3dsx, application_count = installer.start()
     if result is False:
         # save3ds_fuse failed
         installer.log('NOTE: Once save3ds_fuse is fixed, run the same command again with --skip-contents')
+    if application_count >= 300:
+        installer.log(f'\n\nWarning: {application_count} installed applications were detected.\n'
+                      f'The HOME Menu will only show 300 icons.\n'
+                      f'Some applications (not updates or DLC) will need to be deleted.')
