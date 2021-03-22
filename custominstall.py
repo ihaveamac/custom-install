@@ -12,7 +12,6 @@ from os import makedirs, rename, scandir
 from os.path import dirname, join, isdir, isfile
 from random import randint
 from hashlib import sha256
-from locale import getpreferredencoding
 from pprint import pformat
 from shutil import copyfile, copy2, rmtree
 import sys
@@ -365,7 +364,7 @@ class CustomInstall:
             out = subprocess.run(save3ds_fuse_common_args + ['-x'],
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT,
-                                 encoding=getpreferredencoding(),
+                                 encoding='utf-8',
                                  **extra_kwargs)
             if out.returncode:
                 for l in out.stdout.split('\n'):
@@ -606,7 +605,7 @@ class CustomInstall:
                 out = subprocess.run(save3ds_fuse_common_args + ['-i'],
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT,
-                                     encoding=getpreferredencoding(),
+                                     encoding='utf-8',
                                      **extra_kwargs)
                 if out.returncode:
                     for l in out.stdout.split('\n'):
