@@ -306,12 +306,9 @@ class CustomInstallGUI(ttk.Frame):
                 sd_selected.delete('1.0', tk.END)
                 sd_selected.insert(tk.END, f)
 
-                sd_msed_path = find_first_file([join(f, 'gm9', 'out', 'movable.sed'), join(f, 'movable.sed')])
-                if sd_msed_path:
-                    self.log('Found movable.sed on SD card at ' + sd_msed_path)
-                    box = self.file_picker_textboxes['movable.sed']
-                    box.delete('1.0', tk.END)
-                    box.insert(tk.END, sd_msed_path)
+                for filename in ['boot9.bin', 'seeddb.bin', 'movable.sed']:
+                    auto_input_filename(self, f, filename)
+
 
         sd_type_label = ttk.Label(file_pickers, text='SD root')
         sd_type_label.grid(row=0, column=0)
@@ -324,6 +321,15 @@ class CustomInstallGUI(ttk.Frame):
 
         self.file_picker_textboxes['sd'] = sd_selected
 
+        def auto_input_filename(self, f, filename):
+            sd_msed_path = find_first_file([join(f, 'gm9', 'out', filename), join(f, filename)])
+            if sd_msed_path:
+                self.log('Found movable.sed on SD card at ' + sd_msed_path)
+                if filename.endswith('bin'):
+                    filename = filename.split('.')[0]
+                box = self.file_picker_textboxes[filename]
+                box.delete('1.0', tk.END)
+                box.insert(tk.END, sd_msed_path)
         # This feels so wrong.
         def create_required_file_picker(type_name, types, default, row, callback=lambda filename: None):
             def internal_callback():
