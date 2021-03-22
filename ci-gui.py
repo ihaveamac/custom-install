@@ -307,7 +307,12 @@ class CustomInstallGUI(ttk.Frame):
                 sd_selected.insert(tk.END, f)
 
                 for filename in ['boot9.bin', 'seeddb.bin', 'movable.sed']:
-                    auto_input_filename(self, f, filename)
+                    path = auto_input_filename(self, f, filename)
+                    if filename == 'boot9.bin':
+                        self.check_b9_loaded()
+                        self.enable_buttons()
+                    if filename == 'seeddb.bin':
+                        load_seeddb(path)
 
 
         sd_type_label = ttk.Label(file_pickers, text='SD root')
@@ -330,6 +335,7 @@ class CustomInstallGUI(ttk.Frame):
                 box = self.file_picker_textboxes[filename]
                 box.delete('1.0', tk.END)
                 box.insert(tk.END, sd_msed_path)
+                return sd_msed_path
         # This feels so wrong.
         def create_required_file_picker(type_name, types, default, row, callback=lambda filename: None):
             def internal_callback():
