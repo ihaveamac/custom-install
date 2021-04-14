@@ -197,31 +197,100 @@ fail:
 	return -1;
 }
 
+Result check_title_exist(u64 title_id, u64 *ticket_ids, u32 ticket_ids_length,  u64 *title_ids, u32 title_ids_length)
+{
+	Result ret = -2;
+
+	for (u32 i = 0; i < ticket_ids_length; i++)
+	{
+		if (ticket_ids[i] == title_id)
+		{
+			ret++;
+			break;
+		}
+	}
+
+	for (u32 i = 0; i < title_ids_length; i++)
+	{
+		if (title_ids[i] == title_id)
+		{
+			ret++;
+		}
+	}
+
+	return ret;
+}
+
 void finalize_install(void)
 {
 	Result res;
 	Handle ticketHandle;
 	struct ticket_dumb ticket_buf;
 	struct finish_db_entry_final *entries;
-	int title_count;
+	int title_count;	
 
-	title_count = load_cifinish(CIFINISH_PATH, &entries);
-	if (title_count == -1)
+	u32 titles_read;
+	u32 tickets_read;
+
+	res = AM_GetTitleCount(MEDIATYPE_SD, &titles_read);
+
+	if (R_FAILED(res))
 	{
 		free(entries);
 		return;
 	}
-	if (title_count == 0)
+
+	res = AM_GetTicketCount(&tickets_read);
+
+	if (R_FAILED(res))
 	{
-		printf("No titles to finalize.\n");
 		free(entries);
 		return;
+	}
+
+	u64 *installed_ticket_ids = malloc(sizeof(u64) * tickets_read );
+	u64 *installed_title_ids  = malloc(sizeof(u64) * titles_read  );
+
+	res = AM_GetTitleList(&titles_read, MEDIATYPE_SD, titles_read, installed_title_ids);
+
+	if (R_FAILED(res))
+	{
+		goto exit;
+	}
+
+	res = AM_GetTicketList(&tickets_read, tickets_read, 0, installed_ticket_ids);
+
+	if (R_FAILED(res))
+	{
+		goto exit;
+	}
+
+	title_count = load_cifinish(CIFINISH_PATH, &entries);
+
+	if (title_count == -1)
+	{
+		goto exit;
+	}
+	else if (title_count == 0)
+	{
+		printf("No titles to finalize.\n");
+		goto exit;
 	}
 
 	memcpy(&ticket_buf, basetik_bin, basetik_bin_size);
 
+	Result exist_res = 0;
+
 	for (int i = 0; i < title_count; ++i)
 	{
+		exist_res = check_title_exist(entries[i].title_id, installed_ticket_ids, tickets_read, installed_title_ids, titles_read);
+
+		if (R_SUCCEEDED(exist_res))
+		{
+			printf("No need to finalize %016llx, skipping...\n", entries[i].title_id);
+			continue;
+		}
+
 		printf("Finalizing %016llx...\n", entries[i].title_id);
 
 		ticket_buf.title_id_be = __builtin_bswap64(entries[i].title_id);
@@ -231,8 +300,7 @@ void finalize_install(void)
 		{
 			printf("Failed to begin ticket install: %08lx\n", res);
 			AM_InstallTicketAbort(ticketHandle);
-			free(entries);
-			return;
+			goto exit;
 		}
 
 		res = FSFILE_Write(ticketHandle, NULL, 0, &ticket_buf, sizeof(struct ticket_dumb), 0);
@@ -240,8 +308,7 @@ void finalize_install(void)
 		{
 			printf("Failed to write ticket: %08lx\n", res);
 			AM_InstallTicketAbort(ticketHandle);
-			free(entries);
-			return;
+			goto exit;
 		}
 
 		res = AM_InstallTicketFinish(ticketHandle);
@@ -249,8 +316,7 @@ void finalize_install(void)
 		{
 			printf("Failed to finish ticket install: %08lx\n", res);
 			AM_InstallTicketAbort(ticketHandle);
-			free(entries);
-			return;
+			goto exit;
 		}
 
 		if (entries[i].has_seed)
@@ -267,7 +333,12 @@ void finalize_install(void)
 	printf("Deleting %s...\n", CIFINISH_PATH);
 	unlink(CIFINISH_PATH);
 
+	exit:
+
 	free(entries);
+	free(installed_ticket_ids);
+	free(installed_title_ids);
+	return;
 }
 
 int main(int argc, char* argv[])
