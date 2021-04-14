@@ -215,6 +215,7 @@ Result check_title_exist(u64 title_id, u64 *ticket_ids, u32 ticket_ids_length,  
 		if (title_ids[i] == title_id)
 		{
 			ret++;
+			break;
 		}
 	}
 
