@@ -237,7 +237,6 @@ void finalize_install(void)
 
 	if (R_FAILED(res))
 	{
-		free(entries);
 		return;
 	}
 
@@ -245,7 +244,6 @@ void finalize_install(void)
 
 	if (R_FAILED(res))
 	{
-		free(entries);
 		return;
 	}
 
