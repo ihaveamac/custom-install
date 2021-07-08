@@ -227,7 +227,7 @@ void finalize_install(void)
 	Result res;
 	Handle ticketHandle;
 	struct ticket_dumb ticket_buf;
-	struct finish_db_entry_final *entries;
+	struct finish_db_entry_final *entries = NULL;
 	int title_count;	
 
 	u32 titles_read;
