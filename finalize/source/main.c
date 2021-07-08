@@ -346,7 +346,7 @@ int main(int argc, char* argv[])
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	printf("custom-install-finalize v1.5\n");
+	printf("custom-install-finalize v1.6\n");
 
 	finalize_install();
 	// print this at the end in case it gets pushed off the screen
