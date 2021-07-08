@@ -1,2 +1,2 @@
 -r requirements.txt
-comtypes==1.1.8
+comtypes==1.1.10
