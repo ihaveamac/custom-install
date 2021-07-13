@@ -6,7 +6,7 @@
 
 from os import environ, scandir
 from os.path import abspath, basename, dirname, join, isfile
-from sys import exc_info, platform
+import sys
 from threading import Thread, Lock
 from time import strftime
 from traceback import format_exception
@@ -29,9 +29,15 @@ if TYPE_CHECKING:
     from os import PathLike
     from typing import Dict, List, Union
 
-is_windows = platform == 'win32'
+frozen = getattr(sys, 'frozen', None)
+is_windows = sys.platform == 'win32'
 taskbar = None
 if is_windows:
+    if frozen:
+        # attempt to fix loading tcl/tk when running from a path with non-latin characters
+        tkinter_path = dirname(tk.__file__)
+        tcl_path = join(tkinter_path, 'tcl8.6')
+        environ['TCL_LIBRARY'] = 'lib/tkinter/tcl8.6'
     try:
         import comtypes.client as cc
 
@@ -39,7 +45,7 @@ if is_windows:
 
         taskbar = cc.CreateObject('{56FDF344-FD6D-11D0-958A-006097C9A090}', interface=tbl.ITaskbarList3)
         taskbar.HrInit()
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, UnicodeEncodeError, AttributeError):
         pass
 
 file_parent = dirname(abspath(__file__))
@@ -492,7 +498,7 @@ class CustomInstallGUI(ttk.Frame):
         self.log(f'custom-install {CI_VERSION} - https://github.com/ihaveamac/custom-install', status=False)
 
         if is_windows and not taskbar:
-            self.log('Note: comtypes module not found.')
+            self.log('Note: Could not load taskbar lib.')
             self.log('Note: Progress will not be shown in the Windows taskbar.')
 
         self.log('Ready.')
@@ -711,7 +717,7 @@ class CustomInstallGUI(ttk.Frame):
                                     "Either title.db doesn't exist, or save3ds_fuse couldn't be run.")
                     self.open_console()
             except:
-                installer.event.on_error(exc_info())
+                installer.event.on_error(sys.exc_info())
             finally:
                 self.enable_buttons()
 
