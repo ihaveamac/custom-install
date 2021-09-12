@@ -44,7 +44,7 @@ if is_windows:
 else:
     from os import statvfs
 
-CI_VERSION = '2.1b4'
+CI_VERSION = '2.1'
 
 # used to run the save3ds_fuse binary next to the script
 frozen = getattr(sys, 'frozen', False)
