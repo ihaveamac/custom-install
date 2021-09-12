@@ -271,6 +271,10 @@ class CustomInstall:
         free_space = get_free_space(self.sd)
         return total_size, free_space
 
+    def check_for_id0(self):
+        sd_path = join(self.sd, 'Nintendo 3DS', self.crypto.id0.hex())
+        return isdir(sd_path)
+
     def start(self):
         if frozen:
             save3ds_fuse_path = join(script_dir, 'bin', 'save3ds_fuse')
@@ -722,6 +726,10 @@ if __name__ == "__main__":
     installer.event.on_log_msg += log_handle
     installer.event.update_percentage += percent_handle
     installer.event.on_error += error
+
+    if not installer.check_for_id0():
+        installer.event.on_error(f'Could not find id0 directory {installer.crypto.id0.hex()} '
+                                 f'inside Nintendo 3DS directory.')
 
     installer.prepare_titles(args.cia)
 

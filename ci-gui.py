@@ -642,7 +642,6 @@ class CustomInstallGUI(ttk.Frame):
         for path in self.readers.keys():
             self.update_status(path, InstallStatus.Waiting)
         self.disable_buttons()
-        self.log('Starting install...')
 
         if taskbar:
             taskbar.SetProgressState(self.hwnd, tbl.TBPF_NORMAL)
@@ -651,6 +650,16 @@ class CustomInstallGUI(ttk.Frame):
                                   sd=sd_root,
                                   skip_contents=self.skip_contents_var.get() == 1,
                                   overwrite_saves=self.overwrite_saves_var.get() == 1)
+
+        if not installer.check_for_id0():
+            self.show_error(f'id0 {installer.crypto.id0.hex()} was not found inside "Nintendo 3DS" on the SD card.\n'
+                            f'\n'
+                            f'Before using custom-install, you should use this SD card on the appropriate console.\n'
+                            f'\n'
+                            f'Otherwise, make sure the correct movable.sed is being used.')
+            return
+
+        self.log('Starting install...')
 
         # use the treeview which has been sorted alphabetically
         readers_final = []
