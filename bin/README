@@ -1,8 +1,11 @@
-save3ds_fuse for win32 and darwin built with commit 25f0b5ec2600ddff8f5d2acf7c89ac1c4e743972
+save3ds_fuse for win32 and darwin built with commit 568b0597b17da0c8cfbd345bab27176cd84bd883
 in repository https://github.com/wwylele/save3ds
 
-win32 binary built on Windows 10, version 1903 64-bit with `cargo build --release --target=i686-pc-windows-msvc`.
+win32 binary built on Windows 10, version 21H2 64-bit with `cargo build --release --target=i686-pc-windows-msvc`.
 
-darwin binary built on macOS 10.15.1 with `cd save3ds_fuse && cargo build --no-default-features --release`.
+darwin binary built on macOS 12.2 with:
+* `cargo build --target=aarch64-apple-darwin --no-default-features --release`
+* `cargo build --target=x86_64-apple-darwin --no-default-features --release`
+* Then a universal binary is built: `lipo -create -output save3ds_fuse-universal2 target/aarch64-apple-darwin/release/save3ds_fuse target/x86_64-apple-darwin/release/save3ds_fuse`
 
 linux binary must be provided by the user.
