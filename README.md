@@ -24,7 +24,7 @@ Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! P
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
 
 ## Setup
-Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build`. The compiled binary is located in `target/debug/save3ds_fuse`, copy it to `bin/linux`.
+Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build --release --no-default-features`. The compiled binary is located in `target/debug/save3ds_fuse`, copy it to `bin/linux`.
 
 movable.sed is required and can be provided with `-m` or `--movable`.
 
