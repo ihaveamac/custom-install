@@ -249,6 +249,9 @@ class CustomInstall:
         return reader
 
     def prepare_titles(self, paths: 'List[PathLike]'):
+        if self.seeddb:
+            load_seeddb(self.seeddb)
+
         readers = []
         for path in paths:
             self.log(f'Reading {path}')
@@ -377,9 +380,6 @@ class CustomInstall:
                 for l in pformat(out.args).split('\n'):
                     self.log(l)
                 return None, False, 0
-
-            if self.seeddb:
-                load_seeddb(self.seeddb)
 
             install_state = {'installed': [], 'failed': []}
 
