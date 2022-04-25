@@ -15,7 +15,7 @@ Installs a title directly to an SD card for the Nintendo 3DS. Originally created
 Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! Python is installed with the `py` launcher by default.
 
 1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
-2. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/module-newer-gui.zip) or `git clone`)
+2. Download the repo ([zip link](https://github.com/ihaveamac/custom-install/archive/safe-install.zip) or `git clone`)
 3. Install the packages:
   * Windows: Double-click `windows-install-dependencies.py`
     * Alternate manual method: `py -3 -m pip install --user -r requirements-win32.txt`
