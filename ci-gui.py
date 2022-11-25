@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # This file is a part of custom-install.py.
 #
 # custom-install is copyright (c) 2019-2020 Ian Burgwin
