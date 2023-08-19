@@ -1,2 +1,3 @@
 events==0.4
 pyctr>=0.4,<0.7
+pywin32

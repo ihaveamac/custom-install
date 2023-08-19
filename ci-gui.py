@@ -17,6 +17,7 @@ import tkinter.ttk as ttk
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 from typing import TYPE_CHECKING
+import tkfilebrowser as fb
 
 from pyctr.crypto import MissingSeedError, CryptoEngine, load_seeddb
 from pyctr.crypto.engine import b9_paths
@@ -416,27 +417,35 @@ class CustomInstallGUI(ttk.Frame):
         add_cdn = ttk.Button(titlelist_buttons, text='Add CDN title folder', command=add_cdn_callback)
         add_cdn.grid(row=0, column=1)
 
+    # I'd like to have to ability to choose multiple directories and loop in them to find .cia then adding them to the list
+
         def add_dirs_callback():
-            d = fd.askdirectory(parent=parent, title='Select folder containing CIA files', initialdir=file_parent)
-            if d:
-                results = {}
-                for f in scandir(d):
-                    if f.name.lower().endswith('.cia'):
-                        success, reason = self.add_cia(f.path)
-                        if not success:
-                            results[f] = reason
+            dirs = fb.askopendirnames(parent=parent, title='Select folder(s) containing CIA files', initialdir=file_parent) #Creer la suite de dossiers
 
-                if results:
-                    title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
-                    title_read_fail_window.focus()
-                self.sort_treeview()
+            for d in dirs:
 
-        add_dirs = ttk.Button(titlelist_buttons, text='Add folder', command=add_dirs_callback)
+                if d:
+                    results = {}
+                    for f in scandir(d):
+                        if f.name.lower().endswith('.cia'):
+                            success, reason = self.add_cia(f.path)
+                            if not success:
+                                results[f] = reason
+
+                    if results:
+                        title_read_fail_window = TitleReadFailResults(self.parent, failed=results)
+                        title_read_fail_window.focus()
+                    self.sort_treeview()
+
+        add_dirs = ttk.Button(titlelist_buttons, text='Add folder(s)', command=add_dirs_callback)
         add_dirs.grid(row=0, column=2)
+
+        #---------------------------------------------------------------------------
 
         def remove_selected_callback():
             for entry in self.treeview.selection():
                 self.remove_cia(entry)
+                
 
         remove_selected = ttk.Button(titlelist_buttons, text='Remove selected', command=remove_selected_callback)
         remove_selected.grid(row=0, column=3)
@@ -453,7 +462,7 @@ class CustomInstallGUI(ttk.Frame):
 
         self.treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
         self.treeview.grid(row=0, column=0, sticky=tk.NSEW)
-        self.treeview.configure(columns=('filepath', 'titleid', 'titlename', 'status'), show='headings')
+        self.treeview.configure(columns=('filepath', 'titleid', 'titlename', 'status', 'size'), show='headings')
 
         self.treeview.column('filepath', width=200, anchor=tk.W)
         self.treeview.heading('filepath', text='File path')
@@ -463,6 +472,8 @@ class CustomInstallGUI(ttk.Frame):
         self.treeview.heading('titlename', text='Title name')
         self.treeview.column('status', width=20, anchor=tk.W)
         self.treeview.heading('status', text='Status')
+        self.treeview.column('status', width=20, anchor=tk.W)
+        self.treeview.heading('status', text='Size')
 
         treeview_scrollbar.configure(command=self.treeview.yview)
 

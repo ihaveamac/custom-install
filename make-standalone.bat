@@ -1,5 +1,6 @@
+rmdir build
 mkdir build
-mkdir dist
+::mkdir dist
 python setup-cxfreeze.py build_exe --build-exe=build\custom-install-standalone
 mkdir build\custom-install-standalone\bin
 copy TaskbarLib.tlb build\custom-install-standalone
@@ -10,4 +11,5 @@ copy title.db.gz build\custom-install-standalone
 copy extras\windows-quickstart.txt build\custom-install-standalone
 copy extras\run_with_cmd.bat build\custom-install-standalone
 copy LICENSE.md build\custom-install-standalone
-python -m zipfile -c dist\custom-install-standalone.zip build\custom-install-standalone
+::python -m zipfile -c dist\custom-install-standalone.zip build\custom-install-standalone
+start extras\killconfirmation01.wav
