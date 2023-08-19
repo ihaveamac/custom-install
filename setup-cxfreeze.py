@@ -14,6 +14,6 @@ else:
 setup(
     name = "ci-gui",
     version = "2.1b4",
-    description = "Installs a title directly to an SD card for the Nintendo 3DS",
+    description = "Nintendo 3DS Title Custom Installer",
     executables = executables
 )

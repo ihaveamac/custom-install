@@ -7,7 +7,7 @@
 # You can find the full license text in LICENSE.md in the root of this project.
 
 from os import environ, scandir
-from os.path import abspath, basename, dirname, join, isfile
+from os.path import abspath, basename, dirname, join, isfile, getsize
 import sys
 from threading import Thread, Lock
 from time import strftime
@@ -417,7 +417,7 @@ class CustomInstallGUI(ttk.Frame):
         add_cdn = ttk.Button(titlelist_buttons, text='Add CDN title folder', command=add_cdn_callback)
         add_cdn.grid(row=0, column=1)
 
-    # I'd like to have to ability to choose multiple directories and loop in them to find .cia then adding them to the list
+    # Now you have the ability to choose multiple directories and loop in them to find .cia then adding them to the list
 
         def add_dirs_callback():
             dirs = fb.askopendirnames(parent=parent, title='Select folder(s) containing CIA files', initialdir=file_parent) #Creer la suite de dossiers
@@ -462,18 +462,19 @@ class CustomInstallGUI(ttk.Frame):
 
         self.treeview = ttk.Treeview(treeview_frame, yscrollcommand=treeview_scrollbar.set)
         self.treeview.grid(row=0, column=0, sticky=tk.NSEW)
-        self.treeview.configure(columns=('filepath', 'titleid', 'titlename', 'status', 'size'), show='headings')
+        self.treeview.configure(columns=('titlename', 'titleid', 'filepath', 'size', 'status'), show='headings')
 
-        self.treeview.column('filepath', width=200, anchor=tk.W)
-        self.treeview.heading('filepath', text='File path')
-        self.treeview.column('titleid', width=70, anchor=tk.W)
-        self.treeview.heading('titleid', text='Title ID')
         self.treeview.column('titlename', width=150, anchor=tk.W)
         self.treeview.heading('titlename', text='Title name')
+        self.treeview.column('titleid', width=70, anchor=tk.W)
+        self.treeview.heading('titleid', text='Title ID')    
+        self.treeview.column('filepath', width=200, anchor=tk.W)
+        self.treeview.heading('filepath', text='File path')
+        self.treeview.column('size', width=20, anchor=tk.W)
+        self.treeview.heading('size', text='Size')
         self.treeview.column('status', width=20, anchor=tk.W)
         self.treeview.heading('status', text='Status')
-        self.treeview.column('status', width=20, anchor=tk.W)
-        self.treeview.heading('status', text='Size')
+        
 
         treeview_scrollbar.configure(command=self.treeview.yview)
 
@@ -568,7 +569,7 @@ class CustomInstallGUI(ttk.Frame):
         except:
             title_name = '(No title)'
         self.treeview.insert('', tk.END, text=path, iid=path,
-                             values=(path, reader.tmd.title_id, title_name, statuses[InstallStatus.Waiting]))
+                             values=(title_name, reader.tmd.title_id, path, getsize(path), statuses[InstallStatus.Waiting]))
         self.readers[path] = reader
         return True, ''
 
