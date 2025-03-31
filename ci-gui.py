@@ -335,7 +335,9 @@ class CustomInstallGUI(ttk.Frame):
         self.file_picker_textboxes['sd'] = sd_selected
 
         def auto_input_filename(self, f, filename):
-            sd_msed_path = find_first_file([join(f, 'gm9', 'out', filename), join(f, filename)])
+            sd_msed_path = find_first_file(
+                [join(f, "gm9", "out", filename), join(f, "boot9strap", filename), join(f, filename)]
+            )
             if sd_msed_path:
                 self.log('Found ' + filename + ' on SD card at ' + sd_msed_path)
                 if filename.endswith('bin'):
