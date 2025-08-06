@@ -473,13 +473,13 @@ class CustomInstall:
                         self.log(f'Writing {content_enc_path}...')
                         with cia.open_raw_section(co.cindex) as s, open(content_out_path, 'wb') as o:
                             result_hash = self.copy_with_progress(s, o, co.size, content_enc_path)
-                            if result_hash != co.hash:
-                                self.log(f'WARNING: Hash does not match for {content_enc_path}!')
-                                install_state['failed'].append(display_title)
-                                rename(temp_title_root, temp_title_root + '-corrupted')
-                                do_continue = True
-                                self.event.update_status(path, InstallStatus.Failed)
-                                break
+                        if result_hash != co.hash:
+                            self.log(f'WARNING: Hash does not match for {content_enc_path}!')
+                            install_state['failed'].append(display_title)
+                            rename(temp_title_root, temp_title_root + '-corrupted')
+                            do_continue = True
+                            self.event.update_status(path, InstallStatus.Failed)
+                            break
 
                     if do_continue:
                         continue
