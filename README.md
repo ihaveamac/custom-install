@@ -23,6 +23,13 @@ Note for Windows users: Enabling "Add Python 3.X to PATH" is **NOT** required! P
 4. Run `custominstall.py` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see Usage section).
 5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
 
+### With Brew for MacOS (unofficial tap but compiled and fetched directly from here)
+1. [Dump boot9.bin and movable.sed](https://ihaveamac.github.io/dump.html) from a 3DS system.
+2. Install Brew if you do not already have it with `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+3. Run `brew install hootyhoot/tap/custom-install` to install custom-install
+4. Run `custom-install` with boot9.bin, movable.sed, path to the SD root, and CIA files to install (see `custom-install --help`).
+5. Download and use [custom-install-finalize](https://github.com/ihaveamac/custom-install/releases) on the 3DS system to finish the install.
+
 ## Setup
 Linux users must build [wwylele/save3ds](https://github.com/wwylele/save3ds) and place `save3ds_fuse` in `bin/linux`. Install [rust using rustup](https://www.rust-lang.org/tools/install), then compile with: `cargo build --release --no-default-features`. The compiled binary is located in `target/release/save3ds_fuse`, copy it to `bin/linux`.
 
